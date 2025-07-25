@@ -2,21 +2,24 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import Link from 'next/link';
+import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, setupRecaptcha } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Smartphone, KeyRound } from 'lucide-react';
-import Image from 'next/image';
+import { Shield, Smartphone, KeyRound, AlertTriangle } from 'lucide-react';
+import { contacts } from '@/lib/data';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
+  const [pin, setPin] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<'otp' | 'pin'>('otp');
   const router = useRouter();
   const { toast } = useToast();
 
@@ -31,10 +34,16 @@ export default function LoginPage() {
         const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setConfirmationResult(confirmation);
         setOtpSent(true);
+        setLoginMethod('otp');
         toast({ title: 'OTP Sent', description: 'An OTP has been sent to your mobile number.' });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid 10-digit mobile number.' });
+      if (error.code === 'auth/billing-not-enabled' || error.code === 'auth/configuration-not-found') {
+        toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'Please sign in using your PIN instead.' });
+        setLoginMethod('pin');
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid 10-digit mobile number.' });
+      }
     } finally {
         setLoading(false);
     }
@@ -61,6 +70,28 @@ export default function LoginPage() {
     }
   };
 
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const user = contacts.find(c => c.phone === mobileNumber);
+
+    if (user && user.pin === pin) {
+      try {
+        await signInWithEmailAndPassword(auth, user.email, user.pin);
+        localStorage.setItem('session-timestamp', Date.now().toString());
+        toast({ title: 'Success', description: 'You are now logged in.' });
+        router.push('/');
+      } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
+      }
+    } else {
+        toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
+    }
+    setLoading(false);
+  };
+
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-2xl">
@@ -69,10 +100,10 @@ export default function LoginPage() {
                 <Shield className="h-8 w-8 text-primary" />
             </div>
             <CardTitle className="text-3xl font-bold">ConnectWave</CardTitle>
-            <CardDescription>Securely sign in with your mobile number.</CardDescription>
+            <CardDescription>Securely sign in to your account.</CardDescription>
         </CardHeader>
         <CardContent>
-          {!otpSent ? (
+          {loginMethod === 'otp' && !otpSent && (
             <form onSubmit={handleSendOtp} className="space-y-4">
                 <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
@@ -92,8 +123,13 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Sending OTP...' : 'Send OTP'}
               </Button>
+               <Button variant="link" onClick={() => setLoginMethod('pin')} className="w-full">
+                Sign in with PIN instead
+              </Button>
             </form>
-          ) : (
+          )}
+          
+          {otpSent && loginMethod === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -110,17 +146,61 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Verifying...' : 'Verify OTP & Sign In'}
               </Button>
-              <Button variant="link" onClick={() => setOtpSent(false)} className="w-full">
+              <Button variant="link" onClick={() => { setOtpSent(false); setConfirmationResult(null); }} className="w-full">
                 Back to phone number input
               </Button>
             </form>
           )}
+
+          {loginMethod === 'pin' && (
+             <form onSubmit={handlePinLogin} className="space-y-4">
+                <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 text-center">
+                    <AlertTriangle className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
+                    <p className="text-sm text-yellow-800 font-medium">You are signing in with your Mobile Number and PIN.</p>
+                </div>
+                <div className="relative">
+                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="tel"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value)}
+                        placeholder="Mobile number"
+                        className="pl-10"
+                        required
+                        disabled={loading}
+                    />
+                </div>
+                <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="password"
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        placeholder="4-digit PIN"
+                        className="pl-10"
+                        maxLength={4}
+                        required
+                        disabled={loading}
+                    />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Signing In...' : 'Sign In with PIN'}
+                </Button>
+                <Button variant="link" onClick={() => setLoginMethod('otp')} className="w-full">
+                    Sign in with OTP instead
+                </Button>
+             </form>
+          )}
+
           <div id="recaptcha-container" className="mt-4"></div>
+           <p className="mt-4 text-center text-sm text-muted-foreground">
+            Don't have an account?{' '}
+            <Link href="/register" className="font-semibold text-primary hover:underline">
+              Register
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
   );
-
-    
-
-    
+}

@@ -2,6 +2,8 @@ export type Contact = {
   id: string;
   name: string;
   avatar: string;
+  email: string;
+  pin: string;
   online?: boolean;
   lastSeen?: string;
   phone?: string;
@@ -24,12 +26,12 @@ export type Chat = {
 };
 
 export const contacts: Contact[] = [
-  { id: 'user1', name: 'You', avatar: `https://placehold.co/100x100.png`, online: true, phone: '+1234567890' },
-  { id: 'user2', name: 'Alice', avatar: `https://placehold.co/100x100.png`, online: true, phone: '+1234567891' },
-  { id: 'user3', name: 'Bob', avatar: `https://placehold.co/100x100.png`, lastSeen: '5m ago', phone: '+1234567892' },
-  { id: 'user4', name: 'Charlie', avatar: `https://placehold.co/100x100.png`, lastSeen: '1h ago', phone: '+1234567893' },
-  { id: 'user5', name: 'Diana', avatar: `https://placehold.co/100x100.png`, online: true, phone: '+1234567894' },
-  { id: 'user6', name: 'Ethan', avatar: `https://placehold.co/100x100.png`, lastSeen: 'yesterday', phone: '+1234567895' },
+  { id: 'user1', name: 'You', avatar: `https://placehold.co/100x100.png`, online: true, phone: '1234567890', email: 'you@test.com', pin: '1234' },
+  { id: 'user2', name: 'Alice', avatar: `https://placehold.co/100x100.png`, online: true, phone: '1234567891', email: 'alice@test.com', pin: '1234' },
+  { id: 'user3', name: 'Bob', avatar: `https://placehold.co/100x100.png`, lastSeen: '5m ago', phone: '1234567892', email: 'bob@test.com', pin: '1234' },
+  { id: 'user4', name: 'Charlie', avatar: `https://placehold.co/100x100.png`, lastSeen: '1h ago', phone: '1234567893', email: 'charlie@test.com', pin: '1234' },
+  { id: 'user5', name: 'Diana', avatar: `https://placehold.co/100x100.png`, online: true, phone: '1234567894', email: 'diana@test.com', pin: '1234' },
+  { id: 'user6', name: 'Ethan', avatar: `https://placehold.co/100x100.png`, lastSeen: 'yesterday', phone: '1234567895', email: 'ethan@test.com', pin: '1234' },
 ];
 
 const [you, alice, bob, charlie, diana, ethan] = contacts;

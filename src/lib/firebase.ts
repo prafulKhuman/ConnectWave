@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 
 const firebaseConfig = {
   projectId: "connectwave-6mfth",
@@ -18,6 +18,13 @@ const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence);
 
 const setupRecaptcha = (phone: string) => {
+    const recaptchaContainer = document.getElementById('recaptcha-container');
+    if (!recaptchaContainer) {
+      const newContainer = document.createElement('div');
+      newContainer.id = 'recaptcha-container';
+      document.body.appendChild(newContainer);
+    }
+    
     const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
         'callback': (response: any) => {
@@ -31,4 +38,4 @@ const onAuthUserChanged = (callback: (user: User | null) => void) => {
     return onAuthStateChanged(auth, callback);
 }
 
-export { app, auth, setupRecaptcha, onAuthUserChanged };
+export { app, auth, setupRecaptcha, onAuthUserChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword };
