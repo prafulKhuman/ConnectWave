@@ -24,13 +24,14 @@ export default function LoginPage() {
     setLoading(true);
     try {
         const recaptchaVerifier = setupRecaptcha(phoneNumber);
-        const confirmation = await signInWithPhoneNumber(auth, `+${phoneNumber}`, recaptchaVerifier);
+        const fullPhoneNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+        const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setConfirmationResult(confirmation);
         setOtpSent(true);
         toast({ title: 'OTP Sent', description: 'An OTP has been sent to your mobile number.' });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Make sure you have entered a valid phone number with country code.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid phone number including country code (e.g., +11234567890).' });
     } finally {
         setLoading(false);
     }
@@ -76,7 +77,7 @@ export default function LoginPage() {
                         type="tel"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="e.g. 11234567890"
+                        placeholder="Phone number with country code"
                         className="pl-10"
                         required
                         disabled={loading}
