@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,18 +16,29 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { contacts, currentUser } from '@/lib/data';
+import { getAvailableContacts, createNewGroupInFirestore } from '@/lib/firebase';
 import { UserAvatar } from './user-avatar';
 import { MessageSquarePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Contact } from '@/lib/data';
 
-export function NewGroupDialog() {
+type NewGroupDialogProps = {
+  currentUser: Contact;
+};
+
+export function NewGroupDialog({ currentUser }: NewGroupDialogProps) {
+  const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  const availableContacts = contacts.filter((c) => c.id !== currentUser.id);
+  useEffect(() => {
+    if (isOpen) {
+      const unsubscribe = getAvailableContacts(currentUser.id, setAvailableContacts);
+      return () => unsubscribe();
+    }
+  }, [isOpen, currentUser.id]);
 
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts((prev) =>
@@ -36,15 +48,26 @@ export function NewGroupDialog() {
     );
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (groupName.trim() && selectedContacts.length > 0) {
-      toast({
-        title: 'Group Created',
-        description: `Group "${groupName}" created with ${selectedContacts.length} members.`,
-      });
-      setIsOpen(false);
-      setGroupName('');
-      setSelectedContacts([]);
+      try {
+        const participantIds = [...selectedContacts, currentUser.id];
+        await createNewGroupInFirestore(groupName, participantIds, `https://placehold.co/100x100.png`);
+        toast({
+          title: 'Group Created',
+          description: `Group "${groupName}" created with ${selectedContacts.length + 1} members.`,
+        });
+        setIsOpen(false);
+        setGroupName('');
+        setSelectedContacts([]);
+      } catch (error) {
+        console.error("Error creating group: ", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to create group. Please try again.',
+        });
+      }
     } else {
       toast({
         variant: 'destructive',

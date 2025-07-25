@@ -1,25 +1,26 @@
+
 'use client';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser } from '@/lib/firebase';
 import { User, signOut } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import type { Chat } from '@/lib/data';
-import { chats as initialChats } from '@/lib/data';
+import type { Chat, Contact } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
-  const [chats] = React.useState<Chat[]>(initialChats);
-  const [selectedChat, setSelectedChat] = React.useState<Chat | null>(chats[0] || null);
+  const [chats, setChats] = React.useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = React.useState<Chat | null>(null);
   const [user, setUser] = React.useState<User | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<Contact | null>(null);
   const [loading, setLoading] = React.useState(true);
   const router = useRouter();
 
   React.useEffect(() => {
-    const unsubscribe = onAuthUserChanged((user) => {
+    const unsubscribeAuth = onAuthUserChanged(async (user) => {
       if (user) {
         const sessionTimestamp = localStorage.getItem('session-timestamp');
         if (sessionTimestamp) {
@@ -36,16 +37,32 @@ export default function Home() {
           }
         }
         setUser(user);
+        const userProfile = await getCurrentUser(user.uid);
+        setCurrentUser(userProfile);
+        
+        if (userProfile) {
+          const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
+            setChats(newChats);
+            if (!selectedChat && newChats.length > 0) {
+              setSelectedChat(newChats[0]);
+            } else if (selectedChat) {
+              const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
+              setSelectedChat(updatedSelectedChat || newChats[0] || null);
+            }
+          });
+          return () => unsubscribeChats();
+        }
+
       } else {
         router.push('/login');
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [router]);
+    return () => unsubscribeAuth();
+  }, [router, selectedChat]);
 
-  if (loading) {
+  if (loading || !currentUser) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <div className="flex flex-col items-center gap-4">
@@ -72,10 +89,11 @@ export default function Home() {
               chats={chats}
               selectedChat={selectedChat}
               setSelectedChat={setSelectedChat}
+              currentUser={currentUser}
             />
           </Sidebar>
           <SidebarInset className="flex-1">
-            <ConversationView selectedChat={selectedChat} />
+            <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
           </SidebarInset>
         </div>
       </SidebarProvider>

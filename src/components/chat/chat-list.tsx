@@ -2,12 +2,11 @@
 'use client';
 
 import * as React from 'react';
-import { Search, MessageSquarePlus, LogOut } from 'lucide-react';
+import { Search, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { Chat } from '@/lib/data';
-import { currentUser } from '@/lib/data';
+import type { Chat, Contact } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
 import { Button } from '@/components/ui/button';
@@ -31,9 +30,10 @@ type ChatListProps = {
   chats: Chat[];
   selectedChat: Chat | null;
   setSelectedChat: (chat: Chat) => void;
+  currentUser: Contact;
 };
 
-export function ChatList({ chats, selectedChat, setSelectedChat }: ChatListProps) {
+export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: ChatListProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
   const router = useRouter();
   const { toast } = useToast();
@@ -75,7 +75,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat }: ChatListProps
           <h1 className="text-xl font-bold">Chats</h1>
         </div>
         <div className="flex items-center gap-1">
-          <NewGroupDialog />
+          <NewGroupDialog currentUser={currentUser} />
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon">

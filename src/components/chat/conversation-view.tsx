@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -6,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type { Chat, Message } from '@/lib/data';
-import { currentUser } from '@/lib/data';
+import type { Chat, Message, Contact } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import {
   DropdownMenu,
@@ -16,19 +16,23 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
+import { getMessagesForChat, sendMessageInChat } from '@/lib/firebase';
 
 type ConversationViewProps = {
   selectedChat: Chat | null;
+  currentUser: Contact;
 };
 
-export function ConversationView({ selectedChat }: ConversationViewProps) {
+export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
-  const [messages, setMessages] = React.useState<Message[]>(selectedChat?.messages || []);
+  const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
 
   React.useEffect(() => {
-    setMessages(selectedChat?.messages || []);
-    scrollToBottom();
+    if (selectedChat) {
+      const unsubscribe = getMessagesForChat(selectedChat.id, setMessages, selectedChat.participants);
+      return () => unsubscribe();
+    }
   }, [selectedChat]);
   
   React.useEffect(() => {
@@ -44,16 +48,10 @@ export function ConversationView({ selectedChat }: ConversationViewProps) {
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && selectedChat) {
-      const msg: Message = {
-        id: `msg${Date.now()}`,
-        sender: currentUser,
-        content: newMessage.trim(),
-        timestamp: new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }).format(new Date()),
-      };
-      setMessages([...messages, msg]);
+      await sendMessageInChat(selectedChat.id, currentUser.id, newMessage.trim());
       setNewMessage('');
     }
   };
@@ -75,7 +73,7 @@ export function ConversationView({ selectedChat }: ConversationViewProps) {
   const chatDetails = {
     name: selectedChat.type === 'group' ? selectedChat.name : otherParticipant?.name,
     avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar,
-    status: selectedChat.type === 'direct' ? (otherParticipant?.online ? 'Online' : `Last seen ${otherParticipant?.lastSeen}`) : `${selectedChat.participants.length} members`,
+    status: selectedChat.type === 'direct' ? (otherParticipant?.online ? 'Online' : `Last seen ${otherParticipant?.lastSeen || 'recently'}`) : `${selectedChat.participants.length} members`,
   };
 
   return (

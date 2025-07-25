@@ -4,13 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, setupRecaptcha } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Smartphone, KeyRound, AlertTriangle, Lock } from 'lucide-react';
-import { contacts } from '@/lib/data';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -73,7 +72,7 @@ export default function LoginPage() {
   const handlePinLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const user = contacts.find(c => c.phone === mobileNumber);
+    const user = await getContactByPhone(mobileNumber);
 
     if (user && user.pin === pin) {
       try {
@@ -204,5 +203,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

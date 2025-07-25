@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Smartphone, KeyRound, User, Lock } from 'lucide-react';
-import { createUserWithEmailAndPassword } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, addUserToFirestore } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
-import { contacts } from '@/lib/data';
+import type { Contact } from '@/lib/data';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -38,18 +38,18 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // Step 2: Add user to local data array (mock database)
-      const newUser = {
+      // Step 2: Add user to Firestore database
+      const newUser: Contact = {
         id: firebaseUser.uid,
         name,
         email,
         phone: mobileNumber,
         pin,
-        password,
+        password, // Storing password here for PIN login fallback. In a real app, this is not recommended.
         avatar: `https://placehold.co/100x100.png`,
         online: true,
       };
-      contacts.push(newUser);
+      await addUserToFirestore(newUser);
 
       toast({ title: 'Registration Successful', description: 'You can now log in with your credentials.' });
       router.push('/login');
@@ -158,5 +158,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    
