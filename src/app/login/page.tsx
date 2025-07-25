@@ -11,7 +11,7 @@ import { Shield, Smartphone, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 
 export default function LoginPage() {
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('+91');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
@@ -31,7 +31,7 @@ export default function LoginPage() {
         toast({ title: 'OTP Sent', description: 'An OTP has been sent to your mobile number.' });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid phone number including country code (e.g., +11234567890).' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid phone number including country code (e.g., +911234567890).' });
     } finally {
         setLoading(false);
     }
