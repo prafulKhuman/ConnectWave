@@ -46,6 +46,7 @@ export default function LoginPage() {
     };
     try {
       await confirmationResult.confirm(otp);
+      localStorage.setItem('session-timestamp', Date.now().toString());
       toast({ title: 'Success', description: 'You are now logged in.' });
       router.push('/');
     } catch (error) {

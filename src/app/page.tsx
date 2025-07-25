@@ -2,8 +2,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, onAuthUserChanged } from '@/lib/firebase';
+import { User, signOut } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -19,8 +19,22 @@ export default function Home() {
   const router = useRouter();
 
   React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthUserChanged((user) => {
       if (user) {
+        const sessionTimestamp = localStorage.getItem('session-timestamp');
+        if (sessionTimestamp) {
+          const lastLoginTime = parseInt(sessionTimestamp, 10);
+          const currentTime = Date.now();
+          const oneDay = 24 * 60 * 60 * 1000;
+
+          if (currentTime - lastLoginTime > oneDay) {
+            signOut(auth).then(() => {
+              localStorage.removeItem('session-timestamp');
+              router.push('/login');
+            });
+            return;
+          }
+        }
         setUser(user);
       } else {
         router.push('/login');

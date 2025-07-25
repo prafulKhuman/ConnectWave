@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User } from "firebase/auth";
 
 const firebaseConfig = {
   projectId: "connectwave-6mfth",
@@ -14,6 +14,9 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
+// This will ensure that the user's session is persisted.
+setPersistence(auth, browserLocalPersistence);
+
 const setupRecaptcha = (phone: string) => {
     const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
@@ -24,5 +27,8 @@ const setupRecaptcha = (phone: string) => {
     return recaptchaVerifier;
 }
 
+const onAuthUserChanged = (callback: (user: User | null) => void) => {
+    return onAuthStateChanged(auth, callback);
+}
 
-export { app, auth, setupRecaptcha };
+export { app, auth, setupRecaptcha, onAuthUserChanged };
