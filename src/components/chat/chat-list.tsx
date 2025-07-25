@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { Search, MessageSquarePlus } from 'lucide-react';
+import { Search, MessageSquarePlus, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -9,6 +10,22 @@ import type { Chat } from '@/lib/data';
 import { currentUser } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type ChatListProps = {
   chats: Chat[];
@@ -18,6 +35,24 @@ type ChatListProps = {
 
 export function ChatList({ chats, selectedChat, setSelectedChat }: ChatListProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem('session-timestamp');
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to log out. Please try again.',
+      });
+    }
+  };
 
   const getChatDetails = (chat: Chat) => {
     if (chat.type === 'group') {
@@ -39,7 +74,29 @@ export function ChatList({ chats, selectedChat, setSelectedChat }: ChatListProps
           <UserAvatar user={currentUser} />
           <h1 className="text-xl font-bold">Chats</h1>
         </div>
-        <NewGroupDialog />
+        <div className="flex items-center gap-1">
+          <NewGroupDialog />
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <LogOut className="h-5 w-5" />
+                <span className="sr-only">Logout</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  You will be returned to the login screen.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Logout</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </header>
 
       <div className="flex-shrink-0 p-3">
