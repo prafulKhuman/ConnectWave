@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Mail, Smartphone, KeyRound, User } from 'lucide-react';
+import { UserPlus, Mail, Smartphone, KeyRound, User, Lock } from 'lucide-react';
 import { createUserWithEmailAndPassword } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import { contacts } from '@/lib/data';
@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -34,7 +35,7 @@ export default function RegisterPage() {
     
     try {
       // Step 1: Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pin);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
       // Step 2: Add user to local data array (mock database)
@@ -44,6 +45,7 @@ export default function RegisterPage() {
         email,
         phone: mobileNumber,
         pin,
+        password,
         avatar: `https://placehold.co/100x100.png`,
         online: true,
       };
@@ -60,7 +62,7 @@ export default function RegisterPage() {
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Please enter a valid email address.';
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'The PIN is too weak. Please use a stronger one.';
+        errorMessage = 'The password is too weak. Please use a stronger one.';
       }
       toast({ variant: 'destructive', title: 'Error', description: errorMessage });
     } finally {
@@ -129,6 +131,18 @@ export default function RegisterPage() {
                   disabled={loading}
                 />
               </div>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a Password"
+                  className="pl-10"
+                  required
+                  disabled={loading}
+                />
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Registering...' : 'Register'}
               </Button>
@@ -144,3 +158,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    

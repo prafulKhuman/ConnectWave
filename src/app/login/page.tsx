@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Smartphone, KeyRound, AlertTriangle } from 'lucide-react';
+import { Shield, Smartphone, KeyRound, AlertTriangle, Lock } from 'lucide-react';
 import { contacts } from '@/lib/data';
 
 export default function LoginPage() {
@@ -77,7 +77,7 @@ export default function LoginPage() {
 
     if (user && user.pin === pin) {
       try {
-        await signInWithEmailAndPassword(auth, user.email, user.pin);
+        await signInWithEmailAndPassword(auth, user.email, user.password);
         localStorage.setItem('session-timestamp', Date.now().toString());
         toast({ title: 'Success', description: 'You are now logged in.' });
         router.push('/');
@@ -204,3 +204,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
