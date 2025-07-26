@@ -110,7 +110,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-hidden">
+      <div className="flex-1 overflow-y-auto">
         <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
           <div className="p-4 sm:p-6 space-y-4">
             {messages.map((message) => (
