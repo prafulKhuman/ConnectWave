@@ -113,7 +113,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 h-full overflow-y-auto">
         <nav className="p-3 pt-0">
           <ul className="space-y-1">
             {filteredChats.map((chat) => {
