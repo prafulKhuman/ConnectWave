@@ -70,7 +70,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <header className="flex items-center justify-between border-b p-3">
+      <header className="flex flex-shrink-0 items-center justify-between border-b p-3">
         <div className="flex items-center gap-3">
           <UserAvatar user={currentUser} />
           <h1 className="text-xl font-bold">Chats</h1>

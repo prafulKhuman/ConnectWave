@@ -90,8 +90,8 @@ export default function Home() {
   return (
     <main className="h-screen w-full bg-background">
       <SidebarProvider>
-        <div className="h-full w-full flex">
-          <Sidebar side="left" className="w-full max-w-sm border-r flex flex-col" collapsible="none">
+        <div className="flex h-full w-full">
+          <Sidebar side="left" className="h-full w-full max-w-sm border-r" collapsible="none">
             <ChatList
               chats={chats}
               selectedChat={selectedChat}
@@ -99,7 +99,7 @@ export default function Home() {
               currentUser={currentUser}
             />
           </Sidebar>
-          <SidebarInset className="flex-1 flex flex-col">
+          <SidebarInset className="flex flex-1 flex-col">
             <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
           </SidebarInset>
         </div>
