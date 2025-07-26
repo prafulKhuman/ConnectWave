@@ -99,7 +99,7 @@ export default function Home() {
               currentUser={currentUser}
             />
           </Sidebar>
-          <SidebarInset className="flex-1">
+          <SidebarInset className="flex-1 flex flex-col">
             <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
           </SidebarInset>
         </div>
