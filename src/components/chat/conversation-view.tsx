@@ -56,7 +56,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-background p-4 text-center">
-        <div className="m-auto flex flex-col items-center gap-2 ml-4">
+        <div className="m-auto flex flex-col items-center gap-2">
             <MessageSquareHeart className="w-24 h-24 text-primary/20 mb-4" strokeWidth={1} />
             <h2 className="text-2xl font-semibold text-foreground">Welcome to ConnectWave</h2>
             <p className="max-w-sm text-muted-foreground">Select a chat to start messaging or create a new group to connect with friends.</p>
@@ -110,7 +110,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
           <div className="p-4 sm:p-6 space-y-4">
             {messages.map((message) => (
