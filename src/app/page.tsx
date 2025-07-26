@@ -35,10 +35,15 @@ export default function Home() {
             });
             return;
           }
+        } else {
+             router.push('/login');
+             return;
         }
+
         setUser(user);
         const userProfile = await getCurrentUser(user.uid);
         setCurrentUser(userProfile);
+        setLoading(false);
         
         if (userProfile) {
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
@@ -48,6 +53,8 @@ export default function Home() {
             } else if (selectedChat) {
               const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
               setSelectedChat(updatedSelectedChat || newChats[0] || null);
+            } else {
+              setSelectedChat(null);
             }
           });
           return () => unsubscribeChats();
@@ -55,8 +62,8 @@ export default function Home() {
 
       } else {
         router.push('/login');
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribeAuth();

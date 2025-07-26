@@ -42,6 +42,11 @@ const setupRecaptcha = (phone: string) => {
       document.body.appendChild(newContainer);
     }
     
+    // Ensure the container is empty before creating a new verifier
+    while (recaptchaContainer && recaptchaContainer.firstChild) {
+      recaptchaContainer.removeChild(recaptchaContainer.firstChild);
+    }
+
     const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
         'callback': (response: any) => {
@@ -71,7 +76,8 @@ const addUserToFirestore = async (user: Contact) => {
 }
 
 const getCurrentUser = async (userId: string): Promise<Contact | null> => {
-    const userDoc = await getDoc(doc(db, "users", userId));
+    const userDocRef = doc(db, "users", userId);
+    const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         return { id: userDoc.id, ...userDoc.data() } as Contact;
     }
@@ -82,39 +88,39 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     const q = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
     
     return onSnapshot(q, async (querySnapshot) => {
-        const chats: Chat[] = [];
-        for (const doc of querySnapshot.docs) {
+        const chatPromises = querySnapshot.docs.map(async (doc) => {
             const chatData = doc.data();
             
             const participants = await Promise.all(
                 chatData.participantIds.map(async (id: string) => {
                     const user = await getCurrentUser(id);
-                    return user || {} as Contact;
+                    return user;
                 })
             );
 
-            // Fetch messages for each chat
-            const messagesQuery = query(collection(db, "chats", doc.id, "messages"), orderBy("timestamp", "asc"));
+            // Fetch last message for chat list display
+            const messagesQuery = query(collection(db, "chats", doc.id, "messages"), orderBy("timestamp", "desc"));
             const messagesSnapshot = await getDocs(messagesQuery);
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
-                const sender = participants.find(p => p.id === msgData.senderId);
+                const sender = participants.find(p => p?.id === msgData.senderId);
                 return { 
                     id: msgDoc.id,
                     content: msgData.content,
-                    timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || 'N/A',
+                    timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                     sender: sender!
                 } as Message;
             });
 
-
-            chats.push({
+            return {
                 id: doc.id,
                 ...chatData,
-                participants,
-                messages
-            } as Chat);
-        }
+                participants: participants.filter(Boolean) as Contact[],
+                messages: messages,
+            } as Chat;
+        });
+
+        const chats = await Promise.all(chatPromises);
         callback(chats);
     });
 };
@@ -130,7 +136,7 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
                 id: doc.id,
                 sender: sender!,
                 content: data.content,
-                timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || 'N/A',
+                timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
             } as Message;
         });
         callback(messages);
@@ -152,6 +158,13 @@ const createNewGroupInFirestore = async (groupName: string, participantIds: stri
         participantIds,
         avatar,
     });
+    // Add an initial message to the group
+    await addDoc(collection(db, "chats", chatRef.id, "messages"), {
+        senderId: participantIds[participantIds.length -1], // Creator
+        content: `Group "${groupName}" was created.`,
+        timestamp: serverTimestamp(),
+    });
+
     return chatRef.id;
 }
 
