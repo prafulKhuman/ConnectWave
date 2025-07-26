@@ -88,9 +88,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="h-screen bg-background">
       <SidebarProvider>
-        <div className="flex h-screen">
+        <div className="flex h-full">
           <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
             <ChatList
               chats={chats}
