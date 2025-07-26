@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -59,7 +59,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-background text-muted-foreground">
-        <Image src="https://placehold.co/400x300.png" width={400} height={300} alt="ConnectWave" className="mb-4 rounded-lg" data-ai-hint="communication technology" />
+        <MessageSquareHeart className="w-24 h-24 text-primary/20 mb-4" strokeWidth={1} />
         <h2 className="text-2xl font-semibold text-foreground">Welcome to ConnectWave</h2>
         <p>Select a chat to start messaging.</p>
         <p className="mt-4 flex items-center gap-2 text-sm">

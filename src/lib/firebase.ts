@@ -13,7 +13,8 @@ import {
     onSnapshot,
     addDoc,
     orderBy,
-    serverTimestamp
+    serverTimestamp,
+    updateDoc
 } from "firebase/firestore";
 import type { Contact, Chat, Message } from './data';
 
@@ -176,6 +177,47 @@ const getAvailableContacts = (currentUserId: string, callback: (contacts: Contac
     });
 };
 
+const updateUserProfile = async (userId: string, data: Partial<Contact>) => {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, data);
+};
+
+const findUserByEmail = async (email: string): Promise<Contact | null> => {
+    const q = query(collection(db, "users"), where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        return null;
+    }
+    const userDoc = querySnapshot.docs[0];
+    return { id: userDoc.id, ...userDoc.data() } as Contact;
+};
+
+const createChatWithUser = async (currentUserId: string, otherUserId: string) => {
+    // Check if a direct chat already exists
+    const participantIds = [currentUserId, otherUserId].sort();
+    const q = query(collection(db, "chats"), where("participantIds", "==", participantIds), where("type", "==", "direct"));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+        // Create a new chat
+        const chatRef = await addDoc(collection(db, "chats"), {
+            type: 'direct',
+            participantIds: participantIds
+        });
+        // Optional: Add an initial message
+        await addDoc(collection(db, "chats", chatRef.id, "messages"), {
+            senderId: currentUserId,
+            content: "Chat started.",
+            timestamp: serverTimestamp(),
+        });
+        return chatRef.id;
+    } else {
+        // Chat already exists
+        return querySnapshot.docs[0].id;
+    }
+};
+
+
 export { 
     app, 
     auth, 
@@ -191,5 +233,8 @@ export {
     getMessagesForChat,
     sendMessageInChat,
     createNewGroupInFirestore,
-    getAvailableContacts
+    getAvailableContacts,
+    updateUserProfile,
+    findUserByEmail,
+    createChatWithUser
 };

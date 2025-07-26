@@ -24,9 +24,10 @@ import type { Contact } from '@/lib/data';
 
 type NewGroupDialogProps = {
   currentUser: Contact;
+  isTriggerInDialog?: boolean;
 };
 
-export function NewGroupDialog({ currentUser }: NewGroupDialogProps) {
+export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGroupDialogProps) {
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
@@ -77,13 +78,21 @@ export function NewGroupDialog({ currentUser }: NewGroupDialogProps) {
     }
   };
 
+  const TriggerButton = isTriggerInDialog ? (
+    <Button className="w-full">
+      <MessageSquarePlus className="mr-2 h-4 w-4" /> Create New Group
+    </Button>
+  ) : (
+    <Button variant="ghost" size="icon">
+      <MessageSquarePlus className="h-5 w-5" />
+      <span className="sr-only">New Group</span>
+    </Button>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <MessageSquarePlus className="h-5 w-5" />
-          <span className="sr-only">New Group</span>
-        </Button>
+        {TriggerButton}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Search, LogOut } from 'lucide-react';
+import { Search, LogOut, Settings } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { SettingsDialog } from './settings-dialog';
 
 type ChatListProps = {
   chats: Chat[];
@@ -76,6 +77,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
         </div>
         <div className="flex items-center gap-1">
           <NewGroupDialog currentUser={currentUser} />
+           <SettingsDialog currentUser={currentUser} />
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon">
