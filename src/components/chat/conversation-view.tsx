@@ -79,7 +79,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-3">
+      <header className="flex-shrink-0 flex items-center justify-between border-b bg-card p-3">
         <div className="flex items-center gap-4">
           <UserAvatar
             user={{
@@ -110,7 +110,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-hidden">
         <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
           <div className="p-4 sm:p-6 space-y-4">
             {messages.map((message) => (
