@@ -58,14 +58,16 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
   if (!selectedChat) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-background text-center">
+      <div className="flex h-full flex-col items-center justify-center bg-background text-center p-4">
         <div className="flex flex-col items-center gap-2">
             <MessageSquareHeart className="w-24 h-24 text-primary/20 mb-4" strokeWidth={1} />
             <h2 className="text-2xl font-semibold text-foreground">Welcome to ConnectWave</h2>
-            <p className="text-muted-foreground">Select a chat to start messaging.</p>
-            <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <WifiOff className="h-4 w-4" /> Your messages are end-to-end encrypted.
-            </p>
+            <p className="max-w-sm text-muted-foreground">Select a chat to start messaging or create a new group to connect with friends.</p>
+            <div className="mt-6 border-t pt-4">
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <WifiOff className="h-4 w-4" /> Your personal messages are end-to-end encrypted.
+                </p>
+            </div>
         </div>
       </div>
     );
