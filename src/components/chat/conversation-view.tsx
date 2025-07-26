@@ -24,7 +24,7 @@ type ConversationViewProps = {
 };
 
 export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
 
@@ -40,11 +40,8 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   }, [messages]);
 
   const scrollToBottom = () => {
-    if (scrollAreaRef.current) {
-        const scrollableView = scrollAreaRef.current.querySelector('div');
-        if (scrollableView) {
-            scrollableView.scrollTop = scrollableView.scrollHeight;
-        }
+    if (scrollViewportRef.current) {
+        scrollViewportRef.current.scrollTop = scrollViewportRef.current.scrollHeight;
     }
   };
 
@@ -81,8 +78,8 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b bg-card p-3">
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-3">
         <div className="flex items-center gap-4">
           <UserAvatar
             user={{
@@ -113,36 +110,39 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <ScrollArea className="flex-1 bg-background/80" ref={scrollAreaRef}>
-        <div className="p-4 sm:p-6 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn('flex animate-in fade-in-25 slide-in-from-bottom-4 duration-300',
-                message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'
-              )}
-            >
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
+          <div className="p-4 sm:p-6 space-y-4">
+            {messages.map((message) => (
               <div
-                className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-xl px-4 py-2.5',
-                  message.sender.id === currentUser.id
-                    ? 'bg-primary/80 text-primary-foreground'
-                    : 'bg-card'
+                key={message.id}
+                className={cn('flex animate-in fade-in-25 slide-in-from-bottom-4 duration-300',
+                  message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'
                 )}
               >
-                {selectedChat.type === 'group' && message.sender.id !== currentUser.id && (
-                  <p className="text-xs font-semibold text-primary pb-1">{message.sender.name}</p>
-                )}
-                <p className="text-sm">{message.content}</p>
-                <p className="mt-1 text-right text-xs text-muted-foreground/80">
-                  {message.timestamp}
-                </p>
+                <div
+                  className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-xl px-4 py-2.5',
+                    message.sender.id === currentUser.id
+                      ? 'bg-primary/80 text-primary-foreground'
+                      : 'bg-card'
+                  )}
+                >
+                  {selectedChat.type === 'group' && message.sender.id !== currentUser.id && (
+                    <p className="text-xs font-semibold text-primary pb-1">{message.sender.name}</p>
+                  )}
+                  <p className="text-sm">{message.content}</p>
+                  <p className="mt-1 text-right text-xs text-muted-foreground/80">
+                    {message.timestamp}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
 
-      <footer className="border-t bg-card p-3">
+
+      <footer className="flex-shrink-0 border-t bg-card p-3">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           <Button variant="ghost" size="icon" type="button"><Smile /></Button>
           <Button variant="ghost" size="icon" type="button"><Paperclip /></Button>
