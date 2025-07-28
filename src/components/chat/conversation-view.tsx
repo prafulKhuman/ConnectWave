@@ -204,7 +204,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
             user={{
               id: selectedChat.id,
               name: chatDetails.name || 'Unknown',
-              avatar: chatDetails.avatar,
+              avatar: chatDetails.avatar || '',
             }}
           />
           <div>
@@ -236,7 +236,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <ScrollArea
           className="h-full"
           viewportRef={scrollViewportRef}
@@ -246,18 +246,18 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               <div
                 key={message.id}
                 className={cn('flex animate-in fade-in-25 slide-in-from-bottom-4 duration-300',
-                  message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'
+                  message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
                 )}
               >
                 <div
                   className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-xl px-4 py-2.5',
-                    message.sender.id === currentUser.id
+                    message.sender?.id === currentUser.id
                       ? 'bg-primary/80 text-primary-foreground'
                       : 'bg-card',
                     message.type === 'image' && 'p-2'
                   )}
                 >
-                  {selectedChat.type === 'group' && message.sender.id !== currentUser.id && (
+                  {selectedChat.type === 'group' && message.sender?.id !== currentUser.id && (
                     <p className="text-xs font-semibold text-primary pb-1">{message.sender.name}</p>
                   )}
                   
