@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, KeyRound, Loader2, Lock } from 'lucide-react';
-import { sendPasswordResetEmail, auth, updateUserProfile, hashPin } from '@/lib/firebase';
+import { sendPasswordResetEmail, auth, updateUserProfile, hashValue } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
       const user = userCredential.user;
 
       // Step 2: If password is correct, hash and update the new PIN
-      const hashedPin = await hashPin(newPin);
+      const hashedPin = await hashValue(newPin);
       await updateUserProfile(user.uid, { pin: hashedPin });
       
       // Step 3: Sign the user out immediately for security

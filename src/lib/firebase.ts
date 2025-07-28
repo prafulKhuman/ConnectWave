@@ -80,15 +80,15 @@ const sendPasswordResetEmail = async (email: string) => {
     return await firebaseSendPasswordResetEmail(auth, email);
 }
 
-// PIN Hashing Functions
-const hashPin = async (pin: string): Promise<string> => {
+// Hashing Functions
+const hashValue = async (value: string): Promise<string> => {
     const salt = await bcrypt.genSalt(10);
-    const hashedPin = await bcrypt.hash(pin, salt);
-    return hashedPin;
+    const hashedValue = await bcrypt.hash(value, salt);
+    return hashedValue;
 }
 
-const comparePin = async (pin: string, hash: string): Promise<boolean> => {
-    return await bcrypt.compare(pin, hash);
+const compareValue = async (value: string, hash: string): Promise<boolean> => {
+    return await bcrypt.compare(value, hash);
 }
 
 
@@ -487,6 +487,6 @@ export {
     updateBlockStatus,
     getParticipantsWithRealtimeStatus,
     uploadImageForChat,
-    hashPin,
-    comparePin
+    hashValue,
+    compareValue
 };

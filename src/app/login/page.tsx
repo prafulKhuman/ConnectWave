@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, comparePin } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, compareValue as comparePin } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,38 +79,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePinLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setShowResend(false);
-    try {
-        const user = await getContactByPhone(mobileNumber);
-
-        if (user && user.pin && await comparePin(pin, user.pin)) {
-          const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
-
-          if (!userCredential.user.emailVerified) {
-            await signOut(auth);
-            toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in.' });
-            setLoading(false);
-            setShowResend(true);
-            return;
-          }
-          
-          toast({ title: 'Success', description: 'You are now logged in.' });
-          router.push('/');
-
-        } else {
-            toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
-            setLoading(false);
-        }
-    } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
-        setLoading(false);
-    } 
-  };
-
   const handleResendVerification = async () => {
     setLoading(true);
     try {
@@ -155,7 +123,7 @@ export default function LoginPage() {
                 </Button>
              </div>
           )}
-          {!otpSent && loginMethod === 'otp' && (
+          {!otpSent && (
             <form onSubmit={handleSendOtp} className="space-y-4">
                 <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
@@ -176,13 +144,10 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Sending...' : 'Send OTP'}
               </Button>
-               <Button variant="link" onClick={() => setLoginMethod('pin')} className="w-full">
-                Sign in with PIN instead
-              </Button>
             </form>
           )}
           
-          {otpSent && loginMethod === 'otp' && (
+          {otpSent && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -206,51 +171,12 @@ export default function LoginPage() {
             </form>
           )}
 
-          {loginMethod === 'pin' && (
-             <form onSubmit={handlePinLogin} className="space-y-4">
-                <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 text-center">
-                    <AlertTriangle className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
-                    <p className="text-sm text-yellow-800 font-medium">You are signing in with your Mobile Number and PIN.</p>
-                </div>
-                <div className="relative">
-                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        type="tel"
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value)}
-                        placeholder="Mobile number"
-                        className="pl-10"
-                        required
-                        disabled={loading}
-                    />
-                </div>
-                <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        type="password"
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value)}
-                        placeholder="4-digit PIN"
-                        className="pl-10"
-                        maxLength={4}
-                        required
-                        disabled={loading}
-                    />
-                </div>
-                <div className="text-right">
-                    <Link href="/forgot-password" passHref>
-                        <Button variant="link" className="text-sm h-auto p-0">Forgot Credentials?</Button>
-                    </Link>
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {loading ? 'Signing In...' : 'Sign In with PIN'}
-                </Button>
-                <Button variant="link" onClick={() => setLoginMethod('otp')} className="w-full">
-                    Sign in with OTP instead
-                </Button>
-             </form>
-          )}
+          <div className="text-right mt-4">
+              <Link href="/forgot-password" passHref>
+                  <Button variant="link" className="text-sm h-auto p-0">Forgot Credentials?</Button>
+              </Link>
+          </div>
+          
 
           <div id="recaptcha-container" className="mt-4"></div>
            <p className="mt-4 text-center text-sm text-muted-foreground">
