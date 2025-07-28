@@ -98,12 +98,14 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         const data = userDoc.data();
-        let lastSeenFormatted = data.lastSeen;
+        let lastSeenFormatted = 'recently';
 
-        // Check if lastSeen is a Firestore Timestamp and format it
         if (data.lastSeen instanceof Timestamp) {
             lastSeenFormatted = formatDistanceToNow(data.lastSeen.toDate(), { addSuffix: true });
+        } else if (typeof data.lastSeen === 'number') { // Handle RTDB timestamp
+            lastSeenFormatted = formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true });
         }
+
 
         return { 
             id: userDoc.id, 
@@ -279,7 +281,9 @@ const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: 
 };
 
 const manageUserPresence = (userId: string) => {
-    if (!userId) return;
+    if (typeof window === 'undefined' || !userId) {
+        return;
+    }
 
     const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
     const userStatusFirestoreRef = doc(db, '/users/' + userId);
@@ -288,15 +292,20 @@ const manageUserPresence = (userId: string) => {
         state: 'offline',
         last_changed: rtdbServerTimestamp(),
     };
-
     const isOnlineForDatabase = {
         state: 'online',
         last_changed: rtdbServerTimestamp(),
     };
-    
+
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
-            // If we're not connected, we can't do anything further.
+            // User is not connected to RTDB.
+            // This can happen briefly when the app first loads.
+            // We can set the Firestore status to offline here as a fallback.
+            updateDoc(userStatusFirestoreRef, {
+                online: false,
+                lastSeen: serverTimestamp(),
+            });
             return;
         }
 
@@ -307,14 +316,20 @@ const manageUserPresence = (userId: string) => {
 
     onValue(userStatusDatabaseRef, (snapshot) => {
         const status = snapshot.val();
-        if (status && status.state === 'online') {
+        if (status?.state === 'online') {
             updateDoc(userStatusFirestoreRef, {
                 online: true,
+                lastSeen: serverTimestamp() // Also update lastSeen when online to keep it fresh
             });
         } else {
-            updateDoc(userStatusFirestoreRef, {
-                online: false,
-                lastSeen: serverTimestamp(),
+            // Only update if not already offline to avoid loops
+            getDoc(userStatusFirestoreRef).then(docSnap => {
+                if (docSnap.exists() && docSnap.data().online) {
+                     updateDoc(userStatusFirestoreRef, {
+                        online: false,
+                        lastSeen: status?.last_changed ? status.last_changed : serverTimestamp(),
+                    });
+                }
             });
         }
     });
@@ -378,5 +393,3 @@ export {
     clearChatHistory,
     updateBlockStatus
 };
-
-    
