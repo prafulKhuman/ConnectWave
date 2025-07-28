@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Search, LogOut, Settings } from 'lucide-react';
+import { Search, LogOut, Settings, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -36,10 +36,12 @@ type ChatListProps = {
 
 export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: ChatListProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   const handleLogout = async () => {
+    setLoading(true);
     try {
       await signOut(auth);
       localStorage.removeItem('session-timestamp');
@@ -52,6 +54,8 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
         title: 'Error',
         description: 'Failed to log out. Please try again.',
       });
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -94,7 +98,10 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Logout</AlertDialogAction>
+                <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Logout
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

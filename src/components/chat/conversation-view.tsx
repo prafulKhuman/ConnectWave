@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,6 +26,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (selectedChat) {
@@ -47,8 +48,16 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() && selectedChat) {
-      await sendMessageInChat(selectedChat.id, currentUser.id, newMessage.trim());
-      setNewMessage('');
+      setLoading(true);
+      try {
+        await sendMessageInChat(selectedChat.id, currentUser.id, newMessage.trim());
+        setNewMessage('');
+      } catch (error) {
+        console.error("Error sending message: ", error);
+        // Optionally show a toast notification for the error
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -109,10 +118,9 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto h-screen">
+      <div className="flex-1 overflow-y-auto">
         <ScrollArea
-          // className="h-full"
-          style={{height : "100%"}}
+          className="h-full"
           viewportRef={scrollViewportRef}
         >
           <div className="p-4 sm:p-6 space-y-4">
@@ -147,16 +155,19 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" type="button"><Smile /></Button>
-          <Button variant="ghost" size="icon" type="button"><Paperclip /></Button>
+          <Button variant="ghost" size="icon" type="button" disabled={loading}><Smile /></Button>
+          <Button variant="ghost" size="icon" type="button" disabled={loading}><Paperclip /></Button>
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             className="flex-1"
             autoComplete="off"
+            disabled={loading}
           />
-          <Button type="submit" size="icon"><Send /></Button>
+          <Button type="submit" size="icon" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send />}
+          </Button>
         </form>
       </footer>
     </div>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Mail, Smartphone, KeyRound, User, Lock } from 'lucide-react';
+import { UserPlus, Mail, Smartphone, KeyRound, User, Lock, Loader2 } from 'lucide-react';
 import { createUserWithEmailAndPassword, addUserToFirestore } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import type { Contact } from '@/lib/data';
@@ -144,6 +144,7 @@ export default function RegisterPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Registering...' : 'Register'}
               </Button>
           </form>

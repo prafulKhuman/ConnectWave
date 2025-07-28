@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Smartphone, KeyRound, AlertTriangle, Lock } from 'lucide-react';
+import { Shield, Smartphone, KeyRound, AlertTriangle, Lock, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -72,22 +72,23 @@ export default function LoginPage() {
   const handlePinLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const user = await getContactByPhone(mobileNumber);
+    try {
+        const user = await getContactByPhone(mobileNumber);
 
-    if (user && user.pin === pin) {
-      try {
-        await signInWithEmailAndPassword(auth, user.email, user.password);
-        localStorage.setItem('session-timestamp', Date.now().toString());
-        toast({ title: 'Success', description: 'You are now logged in.' });
-        router.push('/');
-      } catch (error) {
+        if (user && user.pin === pin) {
+          await signInWithEmailAndPassword(auth, user.email, user.password);
+          localStorage.setItem('session-timestamp', Date.now().toString());
+          toast({ title: 'Success', description: 'You are now logged in.' });
+          router.push('/');
+        } else {
+            toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
+        }
+    } catch (error) {
         console.error(error);
         toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
-      }
-    } else {
-        toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
 
@@ -120,7 +121,8 @@ export default function LoginPage() {
                     />
                 </div>
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Sending OTP...' : 'Send OTP'}
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? 'Sending...' : 'Send OTP'}
               </Button>
                <Button variant="link" onClick={() => setLoginMethod('pin')} className="w-full">
                 Sign in with PIN instead
@@ -143,6 +145,7 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Verifying...' : 'Verify OTP & Sign In'}
               </Button>
               <Button variant="link" onClick={() => { setOtpSent(false); setConfirmationResult(null); }} className="w-full">
@@ -183,6 +186,7 @@ export default function LoginPage() {
                     />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {loading ? 'Signing In...' : 'Sign In with PIN'}
                 </Button>
                 <Button variant="link" onClick={() => setLoginMethod('otp')} className="w-full">

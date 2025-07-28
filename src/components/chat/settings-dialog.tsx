@@ -2,7 +2,6 @@
 'use client';
 
 import { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,12 +15,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, User, Lock, UserPlus, Users, Upload } from 'lucide-react';
+import { Settings, User, Lock, UserPlus, Users, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Contact } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
 import { updateUserProfile, findUserByEmail, createChatWithUser, uploadAvatar } from '@/lib/firebase';
+import { v4 as uuidv4 } from 'uuid';
 
 type SettingsDialogProps = {
   currentUser: Contact;
@@ -36,6 +36,10 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
   const [contactEmail, setContactEmail] = useState('');
   
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [contactLoading, setContactLoading] = useState(false);
+
   const { toast } = useToast();
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,12 +51,14 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   };
   
   const handleProfileUpdate = async () => {
+    setProfileLoading(true);
     let newAvatarUrl = currentUser.avatar;
     if (avatarFile) {
         try {
             newAvatarUrl = await uploadAvatar(currentUser.id, avatarFile);
         } catch (error) {
             toast({ variant: 'destructive', title: "Upload Failed", description: "Could not upload new profile picture." });
+            setProfileLoading(false);
             return;
         }
     }
@@ -62,6 +68,8 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
       toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Failed to update profile." });
+    } finally {
+        setProfileLoading(false);
     }
   };
   
@@ -74,6 +82,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
       toast({ variant: 'destructive', title: 'PINs do not match', description: 'Please ensure both PINs are the same.' });
       return;
     }
+    setPinLoading(true);
     try {
       await updateUserProfile(currentUser.id, { pin });
       toast({ title: "PIN Changed", description: "Your App Lock PIN has been updated." });
@@ -81,6 +90,8 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
       setConfirmPin('');
     } catch (error) {
         toast({ variant: 'destructive', title: "Error", description: "Failed to change PIN." });
+    } finally {
+        setPinLoading(false);
     }
   };
 
@@ -89,7 +100,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
       toast({ variant: 'destructive', title: 'Error', description: 'Please enter an email address.' });
       return;
     }
-
+    setContactLoading(true);
     try {
         const foundUser = await findUserByEmail(contactEmail);
         if (!foundUser) {
@@ -109,6 +120,8 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     } catch (error) {
         console.error(error);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to add contact.' });
+    } finally {
+        setContactLoading(false);
     }
   };
 
@@ -142,27 +155,33 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
                     <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted">
                         <Upload className="h-4 w-4" />
                     </Label>
-                    <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                    <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={profileLoading} />
                 </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={profileLoading}/>
             </div>
-            <Button onClick={handleProfileUpdate} className="w-full">Save Changes</Button>
+            <Button onClick={handleProfileUpdate} className="w-full" disabled={profileLoading}>
+                {profileLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {profileLoading ? "Saving..." : "Save Changes"}
+            </Button>
           </TabsContent>
           
           <TabsContent value="security" className="py-4 space-y-4">
              <h3 className="font-semibold">Change App Lock PIN</h3>
              <div className="space-y-2">
               <Label htmlFor="pin">New 4-Digit PIN</Label>
-              <Input id="pin" type="password" value={pin} onChange={(e) => setPin(e.target.value)} maxLength={4} />
+              <Input id="pin" type="password" value={pin} onChange={(e) => setPin(e.target.value)} maxLength={4} disabled={pinLoading} />
             </div>
              <div className="space-y-2">
               <Label htmlFor="confirm-pin">Confirm New PIN</Label>
-              <Input id="confirm-pin" type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value)} maxLength={4} />
+              <Input id="confirm-pin" type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value)} maxLength={4} disabled={pinLoading} />
             </div>
-            <Button onClick={handlePinChange} className="w-full">Set New PIN</Button>
+            <Button onClick={handlePinChange} className="w-full" disabled={pinLoading}>
+                {pinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {pinLoading ? "Setting..." : "Set New PIN"}
+            </Button>
           </TabsContent>
           
           <TabsContent value="contacts" className="py-4 space-y-4">
@@ -170,9 +189,12 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             <p className="text-sm text-muted-foreground">Add a new contact by their email to start a chat.</p>
              <div className="space-y-2">
                 <Label htmlFor="contact-email">User's Email</Label>
-                <Input id="contact-email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="name@example.com" />
+                <Input id="contact-email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="name@example.com" disabled={contactLoading} />
              </div>
-             <Button onClick={handleAddContact} className="w-full">Find and Add Contact</Button>
+             <Button onClick={handleAddContact} className="w-full" disabled={contactLoading}>
+                {contactLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {contactLoading ? "Adding..." : "Find and Add Contact"}
+            </Button>
           </TabsContent>
           
           <TabsContent value="group" className="py-4">

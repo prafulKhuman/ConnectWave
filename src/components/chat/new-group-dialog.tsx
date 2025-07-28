@@ -18,7 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getAvailableContacts, createNewGroupInFirestore } from '@/lib/firebase';
 import { UserAvatar } from './user-avatar';
-import { MessageSquarePlus } from 'lucide-react';
+import { MessageSquarePlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Contact } from '@/lib/data';
 
@@ -32,6 +32,7 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
 
   const handleCreateGroup = async () => {
     if (groupName.trim() && selectedContacts.length > 0) {
+      setLoading(true);
       try {
         const participantIds = [...selectedContacts, currentUser.id];
         await createNewGroupInFirestore(groupName, participantIds, `https://placehold.co/100x100.png`);
@@ -68,6 +70,8 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
           title: 'Error',
           description: 'Failed to create group. Please try again.',
         });
+      } finally {
+        setLoading(false);
       }
     } else {
       toast({
@@ -112,6 +116,7 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
               onChange={(e) => setGroupName(e.target.value)}
               className="col-span-3"
               placeholder="e.g., Project Team"
+              disabled={loading}
             />
           </div>
           <div className="space-y-2">
@@ -127,6 +132,7 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
                       id={`contact-${contact.id}`}
                       checked={selectedContacts.includes(contact.id)}
                       onCheckedChange={() => handleSelectContact(contact.id)}
+                      disabled={loading}
                     />
                     <label
                       htmlFor={`contact-${contact.id}`}
@@ -142,8 +148,9 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit" onClick={handleCreateGroup}>
-            Create Group
+          <Button type="submit" onClick={handleCreateGroup} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? 'Creating...' : 'Create Group'}
           </Button>
         </DialogFooter>
       </DialogContent>
