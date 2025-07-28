@@ -7,7 +7,7 @@ export type Contact = {
   pin: string;
   password: string;
   online?: boolean;
-  lastSeen?: string; // Using string to store formatted date/time
+  lastSeen?: Date; // Using Date object for comparisons
   phone?: string;
 };
 

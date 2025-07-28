@@ -11,6 +11,7 @@ import {
 import { UserAvatar } from './user-avatar';
 import type { Contact } from '@/lib/data';
 import { Mail, Phone, User } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 type ViewContactDialogProps = {
   isOpen: boolean;
@@ -21,6 +22,15 @@ type ViewContactDialogProps = {
 export function ViewContactDialog({ isOpen, setIsOpen, contact }: ViewContactDialogProps) {
   if (!contact) return null;
 
+  const getStatus = (contact: Contact | undefined): string => {
+    if (!contact) return '';
+    if (contact.online) return 'Online';
+    if (contact.lastSeen) {
+      return `Last seen ${formatDistanceToNow(contact.lastSeen, { addSuffix: true })}`;
+    }
+    return 'Offline';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-sm">
@@ -28,7 +38,7 @@ export function ViewContactDialog({ isOpen, setIsOpen, contact }: ViewContactDia
           <UserAvatar user={contact} className="h-24 w-24 mb-4" />
           <DialogTitle className="text-2xl">{contact.name}</DialogTitle>
           <DialogDescription>
-            {contact.online ? 'Online' : `Last seen ${contact.lastSeen || 'recently'}`}
+            {getStatus(contact)}
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">

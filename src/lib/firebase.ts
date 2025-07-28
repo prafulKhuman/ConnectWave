@@ -98,19 +98,18 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         const data = userDoc.data();
-        let lastSeenFormatted = 'recently';
+        let lastSeenDate: Date | undefined = undefined;
 
         if (data.lastSeen instanceof Timestamp) {
-            lastSeenFormatted = formatDistanceToNow(data.lastSeen.toDate(), { addSuffix: true });
+            lastSeenDate = data.lastSeen.toDate();
         } else if (typeof data.lastSeen === 'number') { // Handle RTDB timestamp
-            lastSeenFormatted = formatDistanceToNow(new Date(data.lastSeen), { addSuffix: true });
+            lastSeenDate = new Date(data.lastSeen);
         }
-
 
         return { 
             id: userDoc.id, 
             ...data,
-            lastSeen: lastSeenFormatted 
+            lastSeen: lastSeenDate,
         } as Contact;
     }
     return null;
@@ -288,20 +287,8 @@ const manageUserPresence = (userId: string) => {
     const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
     const userStatusFirestoreRef = doc(db, '/users/' + userId);
 
-    const isOfflineForDatabase = {
-        state: 'offline',
-        last_changed: rtdbServerTimestamp(),
-    };
-    const isOnlineForDatabase = {
-        state: 'online',
-        last_changed: rtdbServerTimestamp(),
-    };
-
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
-            // User is not connected to RTDB.
-            // This can happen briefly when the app first loads.
-            // We can set the Firestore status to offline here as a fallback.
             updateDoc(userStatusFirestoreRef, {
                 online: false,
                 lastSeen: serverTimestamp(),
@@ -309,32 +296,30 @@ const manageUserPresence = (userId: string) => {
             return;
         }
 
-        onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
-            rtdbSet(userStatusDatabaseRef, isOnlineForDatabase);
+        onDisconnect(userStatusDatabaseRef).set({
+            state: 'offline',
+            last_changed: rtdbServerTimestamp(),
+        }).then(() => {
+            rtdbSet(userStatusDatabaseRef, {
+                state: 'online',
+                last_changed: rtdbServerTimestamp(),
+            });
+            updateDoc(userStatusFirestoreRef, {
+                online: true,
+            });
         });
     });
 
     onValue(userStatusDatabaseRef, (snapshot) => {
         const status = snapshot.val();
-        if (status?.state === 'online') {
+        if (status?.state === 'offline') {
             updateDoc(userStatusFirestoreRef, {
-                online: true,
-                lastSeen: serverTimestamp() // Also update lastSeen when online to keep it fresh
-            });
-        } else {
-            // Only update if not already offline to avoid loops
-            getDoc(userStatusFirestoreRef).then(docSnap => {
-                if (docSnap.exists() && docSnap.data().online) {
-                     updateDoc(userStatusFirestoreRef, {
-                        online: false,
-                        lastSeen: status?.last_changed ? status.last_changed : serverTimestamp(),
-                    });
-                }
+                online: false,
+                lastSeen: new Date(status.last_changed),
             });
         }
     });
 };
-
 
 // New Contact Management Functions
 

@@ -29,6 +29,7 @@ import {
 import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { formatDistanceToNow } from 'date-fns';
 
 type ConversationViewProps = {
   selectedChat: Chat | null;
@@ -133,10 +134,24 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   }
 
   const otherParticipant = selectedChat.participants.find((p) => p.id !== currentUser.id);
+
+  const getStatus = (contact: Contact | undefined): string => {
+    if (!contact) return '';
+    if (contact.online) return 'Online';
+    if (contact.lastSeen) {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      if (contact.lastSeen > fiveMinutesAgo) {
+        return 'Online';
+      }
+      return `Last seen ${formatDistanceToNow(contact.lastSeen, { addSuffix: true })}`;
+    }
+    return 'Offline';
+  };
+  
   const chatDetails = {
     name: selectedChat.type === 'group' ? selectedChat.name : otherParticipant?.name,
-    avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar,
-    status: selectedChat.type === 'direct' ? (otherParticipant?.online ? 'Online' : `Last seen ${otherParticipant?.lastSeen || 'recently'}`) : `${selectedChat.participants.length} members`,
+    avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar || `https://placehold.co/100x100.png`,
+    status: selectedChat.type === 'direct' ? getStatus(otherParticipant) : `${selectedChat.participants.length} members`,
   };
   
   const isChatBlocked = selectedChat.blocked?.isBlocked;
@@ -152,7 +167,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               id: selectedChat.id,
               name: chatDetails.name || 'Unknown',
               avatar: chatDetails.avatar,
-              online: selectedChat.type === 'direct' ? otherParticipant?.online : false
+              online: chatDetails.status === 'Online'
             }}
           />
           <div>
