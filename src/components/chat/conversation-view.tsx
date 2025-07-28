@@ -150,7 +150,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   
   const chatDetails = {
     name: selectedChat.type === 'group' ? selectedChat.name : otherParticipant?.name,
-    avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar || `https://placehold.co/100x100.png`,
+    avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar,
     status: selectedChat.type === 'direct' ? getStatus(otherParticipant) : `${selectedChat.participants.length} members`,
   };
   
