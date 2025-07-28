@@ -46,7 +46,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/billing-not-enabled' || error.code === 'auth/configuration-not-found') {
-        toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'Please sign in using your PIN instead.' });
+        toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'OTP service is currently unavailable. You can sign in using your PIN instead.' });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid 10-digit mobile number.' });
       }

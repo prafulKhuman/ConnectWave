@@ -103,7 +103,7 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (user: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'>) => {
+const addUserToFirestore = async (user: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'phone'>) => {
     const newUser = {
         ...user,
         avatar: '',
@@ -144,7 +144,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             callback([]);
             return;
         }
-
+        
         const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
         
         if (allParticipantIds.length === 0) {
@@ -152,15 +152,23 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             return;
         }
 
-        // Fetch all participant data in one go
-        const usersQuery = query(collection(db, "users"), where("id", "in", allParticipantIds));
-        const usersSnapshot = await getDocs(usersQuery);
+        // Chunk participant IDs to avoid 'in' query limit of 10
+        const participantChunks: string[][] = [];
+        for (let i = 0; i < allParticipantIds.length; i += 10) {
+            participantChunks.push(allParticipantIds.slice(i, i + 10));
+        }
+
         const participantsMap = new Map<string, Contact>();
-        usersSnapshot.forEach(userDoc => {
-             const data = userDoc.data();
-             const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
-             participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
-        });
+        
+        for (const chunk of participantChunks) {
+            const usersQuery = query(collection(db, "users"), where("id", "in", chunk));
+            const usersSnapshot = await getDocs(usersQuery);
+            usersSnapshot.forEach(userDoc => {
+                 const data = userDoc.data();
+                 const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+                 participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
+            });
+        }
 
 
         // Listen to realtime status for all participants
@@ -253,7 +261,7 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
             const data = doc.data();
             let sender = participants.find(p => p.id === data.senderId);
             if (!sender) {
-                sender = { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '', password: '' } as Contact;
+                sender = { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '' } as Contact;
             }
             return {
                 id: doc.id,
@@ -429,6 +437,12 @@ const getContacts = (userId: string, callback: (contacts: Contact[]) => void) =>
             return;
         }
         const contactIds = snapshot.docs.map(doc => doc.id);
+        
+        if (contactIds.length === 0) {
+            callback([]);
+            return;
+        }
+
         const usersQuery = query(collection(db, "users"), where("id", "in", contactIds));
         
         const usersSnapshot = await getDocs(usersQuery);

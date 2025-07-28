@@ -46,13 +46,14 @@ export default function RegisterPage() {
 
 
       // Step 4: Add user to Firestore database
-      const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen' | 'phone'> = {
+      const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'phone'> = {
+        id: firebaseUser.uid,
         name,
         email,
         mobileNumber,
         pin: hashedPin,
       };
-      await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
+      await addUserToFirestore(newUser);
 
       toast({ title: 'Registration Successful', description: 'A verification email has been sent. Please verify your email before logging in.' });
       router.push('/login');
