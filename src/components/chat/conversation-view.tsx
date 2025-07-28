@@ -175,9 +175,9 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               <DropdownMenuItem onSelect={() => setIsClearChatAlertOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" /> Clear Chat
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsBlockUserAlertOpen(true)} className={isChatBlocked ? "text-destructive" : ""}>
-                {isChatBlocked ? <UserX className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
-                {isChatBlocked ? 'Unblock' : 'Block'}
+              <DropdownMenuItem onSelect={() => setIsBlockUserAlertOpen(true)} className={didIBlock ? "" : (amIBlocked ? "hidden" : "")}>
+                {didIBlock ? <UserX className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
+                {didIBlock ? 'Unblock' : 'Block'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -272,10 +272,10 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-                {isChatBlocked ? 'Unblock User' : 'Block User'}?
+                {didIBlock ? 'Unblock User' : 'Block User'}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {isChatBlocked 
+              {didIBlock 
                 ? `If you unblock ${otherParticipant?.name}, you will be able to send messages again.`
                 : `Blocking ${otherParticipant?.name} will prevent them from sending you messages in this chat.`
               }
@@ -283,9 +283,9 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBlockUser} className={isChatBlocked ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"} disabled={blockUserLoading}>
+            <AlertDialogAction onClick={handleBlockUser} className={didIBlock ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"} disabled={blockUserLoading}>
               {blockUserLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isChatBlocked ? 'Unblock' : 'Block'}
+              {didIBlock ? 'Unblock' : 'Block'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

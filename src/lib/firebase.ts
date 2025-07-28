@@ -291,26 +291,24 @@ const manageUserPresence = (userId: string) => {
         state: 'online',
         last_changed: rtdbServerTimestamp(),
     };
-
-    const isOfflineForFirestore = {
-        online: false,
-        lastSeen: serverTimestamp(),
-    };
-
-    const isOnlineForFirestore = {
-        online: true,
-    };
     
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
             // If we're not connected, we can't do anything further.
-            updateDoc(userStatusFirestoreRef, isOfflineForFirestore);
+            updateDoc(userStatusFirestoreRef, {
+                online: false,
+                lastSeen: serverTimestamp(),
+            });
             return;
         }
 
         onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+            onDisconnect(userStatusFirestoreRef).update({
+                online: false,
+                lastSeen: serverTimestamp(),
+            });
             rtdbSet(userStatusDatabaseRef, isOnlineForDatabase);
-            updateDoc(userStatusFirestoreRef, isOnlineForFirestore);
+            updateDoc(userStatusFirestoreRef, { online: true });
         });
     });
 };
@@ -372,5 +370,3 @@ export {
     clearChatHistory,
     updateBlockStatus
 };
-
-    
