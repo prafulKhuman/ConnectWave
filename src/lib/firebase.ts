@@ -25,7 +25,6 @@ import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, ser
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
-import { formatDistanceToNow } from 'date-fns';
 import bcrypt from 'bcryptjs';
 
 const firebaseConfig = {

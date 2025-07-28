@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, compareValue, hashValue, reauthenticateUser, updateUserProfile } from '@/lib/firebase';
-import { User, EmailAuthProvider } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -91,7 +91,7 @@ export default function Home() {
     });
 
     return () => unsubscribeAuth();
-  }, [router, selectedChat]);
+  }, [router]);
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
