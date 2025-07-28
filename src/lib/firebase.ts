@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification as firebaseSendEmailVerification } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification as firebaseSendEmailVerification, sendPasswordResetEmail as firebaseSendPasswordResetEmail } from "firebase/auth";
 import { 
     getFirestore, 
     collection, 
@@ -25,6 +25,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
 import { formatDistanceToNow } from 'date-fns';
+import bcrypt from 'bcryptjs';
 
 const firebaseConfig = {
     apiKey: "AIzaSyBuDZPKJ2ZF88i8sf2YQsQJb9dzvT45X2w",
@@ -74,6 +75,21 @@ const onAuthUserChanged = (callback: (user: User | null) => void) => {
 const sendEmailVerification = async (user: User) => {
     return await firebaseSendEmailVerification(user);
 };
+
+const sendPasswordResetEmail = async (email: string) => {
+    return await firebaseSendPasswordResetEmail(auth, email);
+}
+
+// PIN Hashing Functions
+const hashPin = async (pin: string): Promise<string> => {
+    const salt = await bcrypt.genSalt(10);
+    const hashedPin = await bcrypt.hash(pin, salt);
+    return hashedPin;
+}
+
+const comparePin = async (pin: string, hash: string): Promise<boolean> => {
+    return await bcrypt.compare(pin, hash);
+}
 
 
 // Firestore functions
@@ -419,6 +435,7 @@ export {
     signInWithEmailAndPassword,
     signOut,
     sendEmailVerification,
+    sendPasswordResetEmail,
     getContactByPhone,
     addUserToFirestore,
     getCurrentUser,
@@ -439,5 +456,7 @@ export {
     deleteChat,
     updateBlockStatus,
     getParticipantsWithRealtimeStatus,
-    uploadImageForChat
+    uploadImageForChat,
+    hashPin,
+    comparePin
 };

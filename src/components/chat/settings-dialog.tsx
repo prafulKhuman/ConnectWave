@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser } from '@/lib/firebase';
+import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashPin } from '@/lib/firebase';
 
 type SettingsDialogProps = {
   currentUser: ContactType;
@@ -85,7 +85,8 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
     setPinLoading(true);
     try {
-      await updateUserProfile(currentUser.id, { pin });
+      const hashedPin = await hashPin(pin);
+      await updateUserProfile(currentUser.id, { pin: hashedPin });
       toast({ title: "PIN Changed", description: "Your App Lock PIN has been updated." });
       setPin('');
       setConfirmPin('');

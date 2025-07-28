@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification as sendVerificationEmailHelper, comparePin } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,7 +86,7 @@ export default function LoginPage() {
     try {
         const user = await getContactByPhone(mobileNumber);
 
-        if (user && user.pin === pin) {
+        if (user && await comparePin(pin, user.pin)) {
           const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
 
           if (!userCredential.user.emailVerified) {
@@ -244,6 +244,11 @@ export default function LoginPage() {
                         disabled={loading}
                     />
                 </div>
+                <div className="text-right">
+                    <Link href="/forgot-password" passHref>
+                        <Button variant="link" className="text-sm h-auto p-0">Forgot PIN/Password?</Button>
+                    </Link>
+                </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {loading ? 'Signing In...' : 'Sign In with PIN'}
@@ -266,4 +271,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

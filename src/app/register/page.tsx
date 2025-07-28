@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Smartphone, KeyRound, User, Lock, Loader2 } from 'lucide-react';
-import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification as sendVerificationEmailHelper, hashPin } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import type { Contact } from '@/lib/data';
 
@@ -41,12 +41,15 @@ export default function RegisterPage() {
       // Step 2: Send verification email
       await sendVerificationEmailHelper(firebaseUser);
 
-      // Step 3: Add user to Firestore database
+      // Step 3: Hash the PIN
+      const hashedPin = await hashPin(pin);
+
+      // Step 4: Add user to Firestore database
       const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'> = {
         name,
         email,
         phone: mobileNumber,
-        pin,
+        pin: hashedPin,
         password, // Storing password here for PIN login fallback. In a real app, this is not recommended.
       };
       await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
