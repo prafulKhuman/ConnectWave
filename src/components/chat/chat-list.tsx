@@ -64,7 +64,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
       return { name: chat.name, avatar: chat.avatar };
     }
     const otherParticipant = chat.participants.find((p) => p.id !== currentUser.id);
-    return { name: otherParticipant?.name, avatar: otherParticipant?.avatar };
+    return { name: otherParticipant?.name, avatar: otherParticipant?.avatar, online: otherParticipant?.online };
   };
 
   const filteredChats = chats.filter((chat) => {
@@ -140,8 +140,8 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
                       user={{
                         id: chat.id,
                         name: details.name || 'Unknown',
-                        avatar: details.avatar || `https://placehold.co/100x100.png`,
-                        online: chat.type === 'direct' ? chat.participants.find(p => p.id !== currentUser.id)?.online : false
+                        avatar: details.avatar,
+                        online: chat.type === 'direct' ? details.online : false
                       }}
                       className="h-12 w-12"
                     />
