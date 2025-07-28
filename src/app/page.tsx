@@ -118,7 +118,7 @@ export default function Home() {
     <main className="h-screen w-full bg-background">
       <SidebarProvider>
         <div className="flex h-full w-full">
-          <Sidebar side="left" className="h-full w-full max-w-sm border-r" collapsible="none">
+          <Sidebar side="left" className=" h-auto w-full max-w-sm border-r" style={{}} collapsible="none">
             <ChatList
               chats={chats}
               selectedChat={selectedChat}
