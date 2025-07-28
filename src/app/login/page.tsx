@@ -22,7 +22,7 @@ export default function LoginPage() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'otp' | 'email'>('otp');
+  const [loginMethod, setLoginMethod] = useState<'otp' | 'email'>('email');
   const [showResend, setShowResend] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -88,8 +88,7 @@ export default function LoginPage() {
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
-            toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in. A new verification link has been sent.' });
-            await sendVerificationEmailHelper(userCredential.user);
+            toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in. You can resend the verification email below.' });
             setShowResend(true);
         } else {
             toast({ title: 'Success', description: 'You are now logged in.' });
@@ -117,8 +116,12 @@ export default function LoginPage() {
       } else {
          toast({ variant: 'destructive', title: 'Error', description: 'Please try signing in again to resend the verification email.' });
       }
-    } catch (error) {
-       toast({ variant: 'destructive', title: 'Error', description: 'Failed to resend verification email.' });
+    } catch (error: any) {
+       if (error.code === 'auth/too-many-requests') {
+            toast({ variant: 'destructive', title: 'Error', description: 'Too many requests. Please try again later.' });
+       } else {
+           toast({ variant: 'destructive', title: 'Error', description: 'Failed to resend verification email.' });
+       }
     } finally {
       setLoading(false);
       setShowResend(false);

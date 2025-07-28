@@ -152,10 +152,10 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             return;
         }
 
-        // Chunk participant IDs to avoid 'in' query limit of 10
+        // Chunk participant IDs to avoid 'in' query limit of 30
         const participantChunks: string[][] = [];
-        for (let i = 0; i < allParticipantIds.length; i += 10) {
-            participantChunks.push(allParticipantIds.slice(i, i + 10));
+        for (let i = 0; i < allParticipantIds.length; i += 30) {
+            participantChunks.push(allParticipantIds.slice(i, i + 30));
         }
 
         const participantsMap = new Map<string, Contact>();
