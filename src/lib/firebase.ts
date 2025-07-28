@@ -16,11 +16,14 @@ import {
     serverTimestamp,
     updateDoc,
     deleteDoc,
-    writeBatch
+    writeBatch,
+    Timestamp
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
+import { formatDistanceToNow } from 'date-fns';
+
 
 const firebaseConfig = {
   projectId: "connectwave-6mfth",
@@ -85,7 +88,19 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
-        return { id: userDoc.id, ...userDoc.data() } as Contact;
+        const data = userDoc.data();
+        let lastSeenFormatted = data.lastSeen;
+
+        // Check if lastSeen is a Firestore Timestamp and format it
+        if (data.lastSeen instanceof Timestamp) {
+            lastSeenFormatted = formatDistanceToNow(data.lastSeen.toDate(), { addSuffix: true });
+        }
+
+        return { 
+            id: userDoc.id, 
+            ...data,
+            lastSeen: lastSeenFormatted 
+        } as Contact;
     }
     return null;
 };
@@ -254,6 +269,16 @@ const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: 
     });
 };
 
+const updateUserPresence = async (userId: string, online: boolean) => {
+    if (!userId) return;
+    const userDocRef = doc(db, "users", userId);
+    const presenceData: { online: boolean; lastSeen?: any } = { online };
+    if (!online) {
+      presenceData.lastSeen = serverTimestamp();
+    }
+    await updateDoc(userDocRef, presenceData);
+};
+
 
 // New Contact Management Functions
 
@@ -301,6 +326,7 @@ export {
     createNewGroupInFirestore,
     getAvailableContacts, // Kept for potential other uses, but Create Group will use getContacts
     updateUserProfile,
+    updateUserPresence,
     findUserByEmail,
     createChatWithUser,
     uploadAvatar,

@@ -7,7 +7,7 @@ export type Contact = {
   pin: string;
   password: string;
   online?: boolean;
-  lastSeen?: string;
+  lastSeen?: string; // Using string to store formatted date/time
   phone?: string;
 };
 
@@ -31,4 +31,3 @@ export type Chat = {
     by: string; // userId of who initiated the block
   };
 };
-

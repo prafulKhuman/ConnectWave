@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, updateUserPresence } from '@/lib/firebase';
 import { User, signOut } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
@@ -20,6 +20,14 @@ export default function Home() {
   const router = useRouter();
 
   React.useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (auth.currentUser) {
+        updateUserPresence(auth.currentUser.uid, false);
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     const unsubscribeAuth = onAuthUserChanged(async (user) => {
       if (user) {
         const sessionTimestamp = localStorage.getItem('session-timestamp');
@@ -29,6 +37,7 @@ export default function Home() {
           const oneDay = 24 * 60 * 60 * 1000;
 
           if (currentTime - lastLoginTime > oneDay) {
+            updateUserPresence(user.uid, false);
             signOut(auth).then(() => {
               localStorage.removeItem('session-timestamp');
               router.push('/login');
@@ -41,6 +50,7 @@ export default function Home() {
         }
 
         setUser(user);
+        await updateUserPresence(user.uid, true);
         const userProfile = await getCurrentUser(user.uid);
         setCurrentUser(userProfile);
         
@@ -59,7 +69,9 @@ export default function Home() {
               setSelectedChat(null);
             }
           });
-          return () => unsubscribeChats();
+          return () => {
+            unsubscribeChats();
+          }
         } else {
             setLoading(false);
         }
@@ -70,7 +82,13 @@ export default function Home() {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        if (auth.currentUser) {
+            updateUserPresence(auth.currentUser.uid, false);
+        }
+        unsubscribeAuth();
+    };
   }, [router, selectedChat, loading]);
 
   if (loading || !currentUser) {
@@ -111,4 +129,3 @@ export default function Home() {
     </main>
   );
 }
-
