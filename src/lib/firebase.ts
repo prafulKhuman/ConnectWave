@@ -295,23 +295,32 @@ const manageUserPresence = (userId: string) => {
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
             // If we're not connected, we can't do anything further.
-            updateDoc(userStatusFirestoreRef, {
+            // This is a fallback. The main onDisconnect will handle this.
+             updateDoc(userStatusFirestoreRef, {
                 online: false,
                 lastSeen: serverTimestamp(),
             });
             return;
         }
 
-        onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
-            onDisconnect(userStatusFirestoreRef).update({
-                online: false,
-                lastSeen: serverTimestamp(),
-            });
+        const onDisconnectRef = onDisconnect(userStatusDatabaseRef);
+        onDisconnectRef.set(isOfflineForDatabase).then(() => {
             rtdbSet(userStatusDatabaseRef, isOnlineForDatabase);
             updateDoc(userStatusFirestoreRef, { online: true });
         });
     });
+     // Separate listener for updating Firestore on disconnect
+    const userStatusRef = rtdbRef(rtdb, '/status/' + userId);
+    onValue(userStatusRef, (snapshot) => {
+        if (snapshot.val()?.state === 'offline') {
+            updateDoc(userStatusFirestoreRef, {
+                online: false,
+                lastSeen: serverTimestamp(),
+            });
+        }
+    });
 };
+
 
 // New Contact Management Functions
 
@@ -370,3 +379,5 @@ export {
     clearChatHistory,
     updateBlockStatus
 };
+
+    
