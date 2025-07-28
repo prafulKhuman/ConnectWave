@@ -137,11 +137,13 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
                 const sender = participants.find(p => p?.id === msgData.senderId);
+                const content = msgData.type === 'image' ? '📷 Photo' : msgData.content;
                 return { 
                     id: msgDoc.id,
-                    content: msgData.content,
+                    content: content,
                     timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
-                    sender: sender!
+                    sender: sender!,
+                    type: msgData.type || 'text',
                 } as Message;
             });
 
@@ -195,23 +197,25 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
             const data = doc.data();
             let sender = participants.find(p => p.id === data.senderId);
             if (!sender) {
-                sender = { id: data.senderId, name: "Unknown User", avatar: '' } as Contact;
+                sender = { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '', password: '' } as Contact;
             }
             return {
                 id: doc.id,
                 sender: sender,
                 content: data.content,
                 timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
+                type: data.type || 'text',
             } as Message;
         });
         callback(messages);
     });
 };
 
-const sendMessageInChat = async (chatId: string, senderId: string, content: string) => {
+const sendMessageInChat = async (chatId: string, senderId: string, content: string, type: 'text' | 'image' = 'text') => {
     await addDoc(collection(db, "chats", chatId, "messages"), {
         senderId,
         content,
+        type,
         timestamp: serverTimestamp()
     });
 }
@@ -228,10 +232,11 @@ const createNewGroupInFirestore = async (groupName: string, participantIds: stri
         senderId: participantIds[participantIds.length -1], // Creator
         content: `Group "${groupName}" was created.`,
         timestamp: serverTimestamp(),
+        type: 'text'
     });
 
     return chatRef.id;
-}
+};
 
 const getAvailableContacts = (currentUserId: string, callback: (contacts: Contact[]) => void) => {
     // This function is now replaced by getContacts, but we keep it to avoid breaking changes if it's used elsewhere.
@@ -276,6 +281,7 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
             senderId: currentUserId,
             content: "Chat started.",
             timestamp: serverTimestamp(),
+            type: 'text'
         });
         return chatRef.id;
     } else {
@@ -292,6 +298,15 @@ const uploadAvatar = async (userId: string, file: File): Promise<string> => {
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
 };
+
+const uploadImageForChat = async (chatId: string, file: File): Promise<string> => {
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const storageRef = ref(storage, `chat-images/${chatId}/${fileName}`);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+}
 
 const clearChatHistory = async (chatId: string) => {
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -327,15 +342,9 @@ const manageUserPresence = (userId: string) => {
     }
 
     const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
-    const userStatusFirestoreRef = doc(db, '/users/' + userId);
-
+    
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
-            // Instead of returning, update Firestore directly
-            updateDoc(userStatusFirestoreRef, {
-                online: false,
-                lastSeen: serverTimestamp(),
-            });
             return;
         }
 
@@ -347,12 +356,10 @@ const manageUserPresence = (userId: string) => {
                 state: 'online',
                 last_changed: rtdbServerTimestamp(),
             });
-            updateDoc(userStatusFirestoreRef, {
-                online: true,
-            });
         });
     });
 
+    const userStatusFirestoreRef = doc(db, '/users/' + userId);
     onValue(userStatusDatabaseRef, (snapshot) => {
         if (snapshot.exists()) {
             const status = snapshot.val();
@@ -360,6 +367,10 @@ const manageUserPresence = (userId: string) => {
                 updateDoc(userStatusFirestoreRef, {
                     online: false,
                     lastSeen: new Date(status.last_changed),
+                });
+            } else {
+                 updateDoc(userStatusFirestoreRef, {
+                    online: true,
                 });
             }
         }
@@ -423,5 +434,6 @@ export {
     clearChatHistory,
     deleteChat,
     updateBlockStatus,
-    getParticipantsWithRealtimeStatus
+    getParticipantsWithRealtimeStatus,
+    uploadImageForChat
 };

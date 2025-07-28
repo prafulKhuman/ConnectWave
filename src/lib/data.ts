@@ -16,6 +16,7 @@ export type Message = {
   sender: Contact;
   content: string;
   timestamp: string;
+  type?: 'text' | 'image';
 };
 
 export type Chat = {

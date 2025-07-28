@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadImageForChat } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -48,6 +48,7 @@ type ConversationViewProps = {
 
 export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -82,13 +83,34 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     if (newMessage.trim() && selectedChat) {
       setLoading(true);
       try {
-        await sendMessageInChat(selectedChat.id, currentUser.id, newMessage.trim());
+        await sendMessageInChat(selectedChat.id, currentUser.id, newMessage.trim(), 'text');
         setNewMessage('');
       } catch (error) {
         console.error("Error sending message: ", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to send message."});
       } finally {
         setLoading(false);
+      }
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && selectedChat) {
+      const file = e.target.files[0];
+      setLoading(true);
+      toast({ title: "Uploading...", description: "Your image is being sent." });
+      try {
+        const imageUrl = await uploadImageForChat(selectedChat.id, file);
+        await sendMessageInChat(selectedChat.id, currentUser.id, imageUrl, 'image');
+        toast({ title: "Image Sent", description: "Your image has been sent successfully." });
+      } catch (error) {
+        console.error("Error sending image: ", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to send image." });
+      } finally {
+        setLoading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     }
   };
@@ -231,13 +253,22 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                   className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-xl px-4 py-2.5',
                     message.sender.id === currentUser.id
                       ? 'bg-primary/80 text-primary-foreground'
-                      : 'bg-card'
+                      : 'bg-card',
+                    message.type === 'image' && 'p-2'
                   )}
                 >
                   {selectedChat.type === 'group' && message.sender.id !== currentUser.id && (
                     <p className="text-xs font-semibold text-primary pb-1">{message.sender.name}</p>
                   )}
-                  <p className="text-sm">{message.content}</p>
+                  
+                  {message.type === 'image' ? (
+                     <a href={message.content} target="_blank" rel="noopener noreferrer">
+                        <img src={message.content} alt="Sent image" data-ai-hint="sent image" className="rounded-lg max-w-[200px] h-auto cursor-pointer" />
+                     </a>
+                  ) : (
+                    <p className="text-sm">{message.content}</p>
+                  )}
+
                   <p className="mt-1 text-right text-xs text-muted-foreground/80">
                     {message.timestamp}
                   </p>
@@ -264,7 +295,12 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                     <EmojiPicker onEmojiClick={onEmojiClick} />
                 </PopoverContent>
             </Popover>
-            <Button variant="ghost" size="icon" type="button" disabled={loading}><Paperclip /></Button>
+
+            <Input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" disabled={loading} />
+            <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+                <Paperclip />
+            </Button>
+
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
