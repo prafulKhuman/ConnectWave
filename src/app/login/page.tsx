@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, compareValue as comparePin } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, compareValue } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -87,15 +87,17 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-        const user = await getContactByPhone(`${countryCode}${mobileNumber}`);
+        const user = await getContactByPhone(mobileNumber);
         if (!user || !user.pin) {
             toast({ variant: 'destructive', title: 'Error', description: 'Invalid mobile number or no PIN set for this account.' });
+            setLoading(false);
             return;
         }
 
-        const isPinValid = await comparePin(pin, user.pin);
+        const isPinValid = await compareValue(pin, user.pin);
         if (!isPinValid) {
             toast({ variant: 'destructive', title: 'Error', description: 'Invalid PIN.' });
+            setLoading(false);
             return;
         }
 

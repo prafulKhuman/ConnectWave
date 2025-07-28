@@ -7,6 +7,7 @@ export type Contact = {
   pin: string;
   online?: boolean;
   lastSeen?: Date; // Using Date object for comparisons
+  mobileNumber?: string;
   phone?: string;
 };
 

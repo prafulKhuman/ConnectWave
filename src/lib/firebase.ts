@@ -94,7 +94,7 @@ const compareValue = async (value: string, hash: string): Promise<boolean> => {
 
 // Firestore functions
 const getContactByPhone = async (phone: string): Promise<Contact | null> => {
-    const q = query(collection(db, "users"), where("phone", "==", phone));
+    const q = query(collection(db, "users"), where("mobileNumber", "==", phone));
     const querySnapshot = await getDocs(q);
     if (querySnapshot.empty) {
         return null;
@@ -103,7 +103,7 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (user: Omit<Contact, 'avatar' | 'online' | 'lastSeen'>) => {
+const addUserToFirestore = async (user: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'>) => {
     const newUser = {
         ...user,
         avatar: '',

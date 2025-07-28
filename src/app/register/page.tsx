@@ -46,10 +46,10 @@ export default function RegisterPage() {
 
 
       // Step 4: Add user to Firestore database
-      const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'> = {
+      const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen' | 'phone'> = {
         name,
         email,
-        phone: mobileNumber,
+        mobileNumber,
         pin: hashedPin,
       };
       await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
