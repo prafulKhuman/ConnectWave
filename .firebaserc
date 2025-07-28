@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "wavync"
-  }
+    "default": "wavync",
+    "prod": "wavync"
+  },
+  "targets": {},
+  "etags": {}
 }
