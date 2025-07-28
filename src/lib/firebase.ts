@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification as firebaseSendEmailVerification } from "firebase/auth";
 import { 
     getFirestore, 
     collection, 
@@ -70,6 +70,11 @@ const setupRecaptcha = (phone: string) => {
 const onAuthUserChanged = (callback: (user: User | null) => void) => {
     return onAuthStateChanged(auth, callback);
 }
+
+const sendEmailVerification = async (user: User) => {
+    return await firebaseSendEmailVerification(user);
+};
+
 
 // Firestore functions
 const getContactByPhone = async (phone: string): Promise<Contact | null> => {

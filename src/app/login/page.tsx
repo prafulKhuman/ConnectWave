@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Smartphone, KeyRound, AlertTriangle, Lock, Loader2, MailCheck } from 'lucide-react';
+import type { User } from 'firebase/auth';
+
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -41,7 +43,6 @@ export default function LoginPage() {
       console.error(error);
       if (error.code === 'auth/billing-not-enabled' || error.code === 'auth/configuration-not-found') {
         toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'Please sign in using your PIN instead.' });
-        setLoginMethod('pin');
       } else {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid 10-digit mobile number.' });
       }
@@ -64,7 +65,7 @@ export default function LoginPage() {
       if (!result.user.emailVerified) {
         await signOut(auth);
         toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in. A new verification link has been sent.' });
-        await sendEmailVerification(result.user);
+        await sendVerificationEmailHelper(result.user);
         setLoading(false);
         setShowResend(true);
         return;
@@ -121,7 +122,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       if (auth.currentUser) {
-        await sendEmailVerification(auth.currentUser);
+        await sendVerificationEmailHelper(auth.currentUser);
         toast({ title: 'Email Sent', description: 'A new verification email has been sent.' });
       } else {
          // This case might happen if user was signed out. We need their email to sign them in again to resend.
@@ -265,3 +266,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

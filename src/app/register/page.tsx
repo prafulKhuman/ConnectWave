@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Smartphone, KeyRound, User, Lock, Loader2 } from 'lucide-react';
-import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import type { Contact } from '@/lib/data';
 
@@ -39,7 +39,7 @@ export default function RegisterPage() {
       const firebaseUser = userCredential.user;
 
       // Step 2: Send verification email
-      await sendEmailVerification(firebaseUser);
+      await sendVerificationEmailHelper(firebaseUser);
 
       // Step 3: Add user to Firestore database
       const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'> = {
