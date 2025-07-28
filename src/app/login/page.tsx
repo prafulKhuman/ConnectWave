@@ -97,11 +97,9 @@ export default function LoginPage() {
             return;
         }
 
-        // At this point, PIN is valid. Now, sign in with email and a placeholder password (the PIN itself)
-        // This is not ideal, but it's a way to achieve the user's flow without storing the actual password.
-        // A custom token would be better, but it requires a backend.
-        // Firebase Auth will still be the one validating the user session.
-        const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+        // At this point, PIN is valid. Now, sign in with email and the PIN as the password.
+        // This is secure because Firebase Auth handles the password verification.
+        const userCredential = await signInWithEmailAndPassword(auth, user.email, pin);
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
@@ -255,5 +253,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

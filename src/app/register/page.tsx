@@ -34,14 +34,15 @@ export default function RegisterPage() {
     }
     
     try {
-      // Step 1: Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // Step 1: Create user in Firebase Auth.
+      // For the PIN login flow to work, we set the user's password to their PIN.
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pin);
       const firebaseUser = userCredential.user;
 
       // Step 2: Send verification email
       await sendVerificationEmailHelper(firebaseUser);
 
-      // Step 3: Hash the PIN and password
+      // Step 3: Hash the PIN and the main password for storage
       const hashedPin = await hashValue(pin);
       const hashedPassword = await hashValue(password);
 
@@ -52,7 +53,7 @@ export default function RegisterPage() {
         email,
         mobileNumber,
         pin: hashedPin,
-        password: hashedPassword,
+        password: hashedPassword, // Stored for the "Forgot PIN" flow
       };
       await addUserToFirestore(firebaseUser.uid, newUser);
 
@@ -164,5 +165,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
-    

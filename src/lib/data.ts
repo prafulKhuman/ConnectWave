@@ -8,7 +8,7 @@ export type Contact = {
   online?: boolean;
   lastSeen?: Date; // Using Date object for comparisons
   mobileNumber?: string;
-  password?: string; // Storing hashed password
+  password?: string; // Storing hashed password for "Forgot PIN" flow
 };
 
 export type Message = {
@@ -32,5 +32,3 @@ export type Chat = {
     by: string; // userId of who initiated the block
   };
 };
-
-    
