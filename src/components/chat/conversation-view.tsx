@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,7 +36,9 @@ import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockSta
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+import type { EmojiClickData } from 'emoji-picker-react';
+
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 
 type ConversationViewProps = {
