@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { Shield, Smartphone, KeyRound, AlertTriangle, Lock, Loader2, MailCheck, Mail } from 'lucide-react';
 import type { User } from 'firebase/auth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 export default function LoginPage() {
