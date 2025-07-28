@@ -271,6 +271,14 @@ const clearChatHistory = async (chatId: string) => {
     await batch.commit();
 };
 
+const deleteChat = async (chatId: string) => {
+    // First, delete all messages in the subcollection
+    await clearChatHistory(chatId);
+    // Then, delete the chat document itself
+    const chatRef = doc(db, 'chats', chatId);
+    await deleteDoc(chatRef);
+}
+
 const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: string) => {
     const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
@@ -376,5 +384,6 @@ export {
     addContact,
     deleteContact,
     clearChatHistory,
+    deleteChat,
     updateBlockStatus
 };
