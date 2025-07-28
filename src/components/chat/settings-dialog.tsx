@@ -16,12 +16,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, User, Lock, UserPlus, Users, Upload, Loader2, Contact } from 'lucide-react';
+import { Settings, User, Lock, UserPlus, Users, Upload, Loader2, Contact, MessageSquarePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar } from '@/lib/firebase';
+import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser } from '@/lib/firebase';
 
 type SettingsDialogProps = {
   currentUser: ContactType;
@@ -34,9 +34,11 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [confirmPin, setConfirmPin] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
+  const [quickChatEmail, setQuickChatEmail] = useState('');
   
   const [profileLoading, setProfileLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
+  const [quickChatLoading, setQuickChatLoading] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -94,6 +96,35 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
+  const handleQuickChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickChatEmail.trim()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please enter an email address.' });
+        return;
+    }
+    setQuickChatLoading(true);
+    try {
+        const foundUser = await findUserByEmail(quickChatEmail);
+        if (!foundUser) {
+            toast({ variant: 'destructive', title: 'User Not Found', description: 'No user found with that email address.' });
+            return;
+        }
+        if (foundUser.id === currentUser.id) {
+            toast({ variant: 'destructive', title: 'Error', description: 'You cannot start a chat with yourself.' });
+            return;
+        }
+        await createChatWithUser(currentUser.id, foundUser.id);
+        toast({ title: 'Chat Started', description: `A new chat with ${foundUser.name} has been started.` });
+        setQuickChatEmail('');
+        setIsOpen(false);
+        router.push('/'); // Navigate to chat list
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to start chat.' });
+    } finally {
+        setQuickChatLoading(false);
+    }
+  };
+
   const navigateToContacts = () => {
     router.push('/contacts');
     setIsOpen(false);
@@ -115,11 +146,12 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="profile"><User className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="security"><Lock className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="contacts"><Contact className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="group"><Users className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="quick-chat"><MessageSquarePlus className="h-4 w-4" /></TabsTrigger>
           </TabsList>
           
           <TabsContent value="profile" className="py-4 space-y-4">
@@ -171,6 +203,27 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             <h3 className="font-semibold">Create a Group</h3>
             <p className="text-sm text-muted-foreground pb-4">Start a new group chat with your contacts.</p>
             <NewGroupDialog currentUser={currentUser} isTriggerInDialog={true}/>
+          </TabsContent>
+
+          <TabsContent value="quick-chat" className="py-4">
+             <h3 className="font-semibold">Quick Chat</h3>
+             <p className="text-sm text-muted-foreground pb-4">Enter a user's email to start a chat without adding them as a contact.</p>
+             <form onSubmit={handleQuickChat} className="space-y-2">
+                <Label htmlFor="quick-chat-email">User Email</Label>
+                <Input
+                    id="quick-chat-email"
+                    type="email"
+                    value={quickChatEmail}
+                    onChange={(e) => setQuickChatEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    disabled={quickChatLoading}
+                    required
+                />
+                <Button type="submit" className="w-full" disabled={quickChatLoading}>
+                    {quickChatLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {quickChatLoading ? 'Starting...' : 'Start Chat'}
+                </Button>
+             </form>
           </TabsContent>
 
         </Tabs>
