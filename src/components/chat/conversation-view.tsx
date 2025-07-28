@@ -17,6 +17,11 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,6 +35,8 @@ import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockSta
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
+
 
 type ConversationViewProps = {
   selectedChat: Chat | null;
@@ -46,6 +53,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const [isViewContactDialogOpen, setIsViewContactDialogOpen] = React.useState(false);
   const [clearChatLoading, setClearChatLoading] = React.useState(false);
   const [blockUserLoading, setBlockUserLoading] = React.useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = React.useState(false);
 
   const { toast } = useToast();
 
@@ -115,6 +123,11 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
       setBlockUserLoading(false);
     }
   };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    setIsEmojiPickerOpen(false);
+  };
   
   if (!selectedChat) {
     return (
@@ -167,7 +180,6 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               id: selectedChat.id,
               name: chatDetails.name || 'Unknown',
               avatar: chatDetails.avatar,
-              online: chatDetails.status === 'Online'
             }}
           />
           <div>
@@ -241,7 +253,14 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
           </div>
         ) : (
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" type="button" disabled={loading}><Smile /></Button>
+            <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" type="button" disabled={loading}><Smile /></Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 border-0" side="top" align="start">
+                    <EmojiPicker onEmojiClick={onEmojiClick} />
+                </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="icon" type="button" disabled={loading}><Paperclip /></Button>
             <Input
               value={newMessage}
