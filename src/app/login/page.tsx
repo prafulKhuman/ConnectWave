@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification as sendVerificationEmailHelper, comparePin } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, comparePin } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -97,14 +97,8 @@ export default function LoginPage() {
             return;
           }
           
-          // Wait for auth state to be confirmed before redirecting
-          const unsubscribe = onAuthUserChanged((authUser) => {
-            if (authUser && authUser.emailVerified) {
-              toast({ title: 'Success', description: 'You are now logged in.' });
-              router.push('/');
-              unsubscribe(); // Clean up the listener
-            }
-          });
+          toast({ title: 'Success', description: 'You are now logged in.' });
+          router.push('/');
 
         } else {
             toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
@@ -115,7 +109,6 @@ export default function LoginPage() {
         toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
         setLoading(false);
     } 
-    // Do not set loading to false here, as the page will redirect if successful
   };
 
   const handleResendVerification = async () => {

@@ -137,25 +137,61 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 
 
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
-    const q = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
-    
-    return onSnapshot(q, async (querySnapshot) => {
-        const chatPromises = querySnapshot.docs.map(async (chatDoc) => {
+    const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
+
+    return onSnapshot(chatsQuery, async (chatsSnapshot) => {
+        if (chatsSnapshot.empty) {
+            callback([]);
+            return;
+        }
+
+        const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
+        
+        if (allParticipantIds.length === 0) {
+            callback([]);
+            return;
+        }
+
+        // Fetch all participant data in one go
+        const usersQuery = query(collection(db, "users"), where("id", "in", allParticipantIds));
+        const usersSnapshot = await getDocs(usersQuery);
+        const participantsMap = new Map<string, Contact>();
+        usersSnapshot.forEach(userDoc => {
+             const data = userDoc.data();
+             const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+             participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
+        });
+
+
+        // Listen to realtime status for all participants
+        allParticipantIds.forEach(id => {
+            const userStatusRef = rtdbRef(rtdb, '/status/' + id);
+            onValue(userStatusRef, (snapshot) => {
+                if(snapshot.exists()) {
+                    const status = snapshot.val();
+                    const user = participantsMap.get(id);
+                    if(user) {
+                        user.online = status.state === 'online';
+                        if(status.state === 'offline') {
+                            user.lastSeen = new Date(status.last_changed);
+                        }
+                    }
+                }
+            })
+        });
+
+        const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
             const chatData = chatDoc.data();
             
-            const participants = await Promise.all(
-                chatData.participantIds.map(async (id: string) => {
-                    const user = await getCurrentUser(id);
-                    return user;
-                })
-            );
+            const participants = chatData.participantIds
+                .map((id: string) => participantsMap.get(id))
+                .filter(Boolean) as Contact[];
 
-            // Fetch last message for chat list display
             const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
             const messagesSnapshot = await getDocs(messagesQuery);
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
-                const sender = participants.find(p => p?.id === msgData.senderId);
+                const sender = participantsMap.get(msgData.senderId);
                 const content = msgData.type === 'image' ? '📷 Photo' : msgData.content;
                 return { 
                     id: msgDoc.id,
@@ -169,8 +205,8 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             return {
                 id: chatDoc.id,
                 ...chatData,
-                participants: participants.filter(Boolean) as Contact[],
-                messages: messages,
+                participants,
+                messages,
             } as Chat;
         });
 
@@ -178,6 +214,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
         callback(chats);
     });
 };
+
 
 const getParticipantsWithRealtimeStatus = (participantIds: string[], callback: (participants: { [key: string]: Contact }) => void) => {
     const unsubscribes = participantIds.map(id => {
@@ -378,22 +415,8 @@ const manageUserPresence = (userId: string) => {
         });
     });
 
-    const userStatusFirestoreRef = doc(db, '/users/' + userId);
-    onValue(userStatusDatabaseRef, (snapshot) => {
-        if (snapshot.exists()) {
-            const status = snapshot.val();
-            if (status.state === 'offline') {
-                updateDoc(userStatusFirestoreRef, {
-                    online: false,
-                    lastSeen: new Date(status.last_changed),
-                });
-            } else {
-                 updateDoc(userStatusFirestoreRef, {
-                    online: true,
-                });
-            }
-        }
-    });
+    // We no longer need to listen here as the main chat listener will handle it.
+    // This reduces redundant listeners.
 };
 
 // New Contact Management Functions
@@ -401,11 +424,20 @@ const manageUserPresence = (userId: string) => {
 const getContacts = (userId: string, callback: (contacts: Contact[]) => void) => {
     const contactsRef = collection(db, 'users', userId, 'contacts');
     return onSnapshot(contactsRef, async (snapshot) => {
-        const contactPromises = snapshot.docs.map(async (doc) => {
-            const contactData = await getCurrentUser(doc.id);
-            return contactData;
+        if (snapshot.empty) {
+            callback([]);
+            return;
+        }
+        const contactIds = snapshot.docs.map(doc => doc.id);
+        const usersQuery = query(collection(db, "users"), where("id", "in", contactIds));
+        
+        const usersSnapshot = await getDocs(usersQuery);
+        const contacts = usersSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+            return { id: doc.id, ...data, lastSeen } as Contact
         });
-        const contacts = (await Promise.all(contactPromises)).filter(Boolean) as Contact[];
+
         callback(contacts);
     });
 };
@@ -413,8 +445,6 @@ const getContacts = (userId: string, callback: (contacts: Contact[]) => void) =>
 const addContact = async (userId: string, contactToAdd: Contact) => {
     const contactRef = doc(db, 'users', userId, 'contacts', contactToAdd.id);
     await setDoc(contactRef, { 
-        // We can store additional info here if needed, like a nickname
-        // For now, just creating the document is enough to establish the relationship
         addedAt: serverTimestamp() 
     });
 };

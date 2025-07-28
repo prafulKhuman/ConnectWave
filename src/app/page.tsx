@@ -3,21 +3,19 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, getParticipantsWithRealtimeStatus } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Chat, Contact } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
-import { signOut } from 'firebase/auth';
 
 export default function Home() {
   const [chats, setChats] = React.useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = React.useState<Chat | null>(null);
   const [user, setUser] = React.useState<User | null>(null);
   const [currentUser, setCurrentUser] = React.useState<Contact | null>(null);
-  const [participants, setParticipants] = React.useState<{ [key: string]: Contact }>({});
   const [loading, setLoading] = React.useState(true);
   const router = useRouter();
 
@@ -25,74 +23,41 @@ export default function Home() {
     const unsubscribeAuth = onAuthUserChanged(async (user) => {
       if (user) {
         setUser(user);
-        if (typeof window !== 'undefined') {
-          manageUserPresence(user.uid);
-        }
+        manageUserPresence(user.uid);
+        
         const userProfile = await getCurrentUser(user.uid);
         setCurrentUser(userProfile);
         
         if (userProfile) {
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
-            
-            const allParticipantIds = Array.from(new Set(newChats.flatMap(c => c.participantIds)));
-            getParticipantsWithRealtimeStatus(allParticipantIds, (updatedParticipants) => {
-              setParticipants(prev => ({ ...prev, ...updatedParticipants }));
-            });
-
-            const updatedChats = newChats.map(chat => ({
-              ...chat,
-              participants: chat.participantIds.map(id => participants[id]).filter(Boolean) as Contact[]
-            }));
-            
-            setChats(updatedChats);
+            setChats(newChats);
 
             if (loading) {
               setLoading(false);
             }
-            if (!selectedChat && newChats.length > 0) {
-              setSelectedChat(newChats[0]);
-            } else if (selectedChat) {
+            // Update selected chat with new data if it exists, or select the first chat.
+            if (selectedChat) {
               const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
               setSelectedChat(updatedSelectedChat || newChats[0] || null);
             } else {
-              setSelectedChat(null);
+              setSelectedChat(newChats[0] || null);
             }
           });
-          return () => {
-            unsubscribeChats();
-          }
+          return () => unsubscribeChats();
         } else {
             setLoading(false);
             router.push('/login');
         }
 
       } else {
-        router.push('/login');
         setLoading(false);
+        router.push('/login');
       }
     });
 
-    return () => {
-        unsubscribeAuth();
-    };
-  }, [router]);
-
-
-  React.useEffect(() => {
-    const updatedChats = chats.map(chat => ({
-        ...chat,
-        participants: chat.participantIds.map(id => participants[id]).filter(Boolean) as Contact[]
-    }));
-    setChats(updatedChats);
-
-    if (selectedChat) {
-        const updatedSelectedChat = updatedChats.find(c => c.id === selectedChat.id);
-        if (updatedSelectedChat) {
-            setSelectedChat(updatedSelectedChat);
-        }
-    }
+    return () => unsubscribeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants]);
+  }, [router]);
 
 
   if (loading || !currentUser) {
