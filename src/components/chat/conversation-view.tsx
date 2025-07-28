@@ -151,7 +151,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
             user={{
               id: selectedChat.id,
               name: chatDetails.name || 'Unknown',
-              avatar: chatDetails.avatar || `https://placehold.co/100x100.png`,
+              avatar: chatDetails.avatar,
               online: selectedChat.type === 'direct' ? otherParticipant?.online : false
             }}
           />

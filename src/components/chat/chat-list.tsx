@@ -43,9 +43,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
   const handleLogout = async () => {
     setLoading(true);
     try {
-      // The onDisconnect handler in firebase.ts will manage the offline status
       await signOut(auth);
-      localStorage.removeItem('session-timestamp');
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
       router.push('/login');
     } catch (error) {
