@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, updateUserPresence } from '@/lib/firebase';
-import { User, signOut } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
@@ -20,7 +20,7 @@ export default function Home() {
   const router = useRouter();
 
   React.useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = () => {
       if (auth.currentUser) {
         updateUserPresence(auth.currentUser.uid, false);
       }
@@ -30,25 +30,6 @@ export default function Home() {
 
     const unsubscribeAuth = onAuthUserChanged(async (user) => {
       if (user) {
-        const sessionTimestamp = localStorage.getItem('session-timestamp');
-        if (sessionTimestamp) {
-          const lastLoginTime = parseInt(sessionTimestamp, 10);
-          const currentTime = Date.now();
-          const oneDay = 24 * 60 * 60 * 1000;
-
-          if (currentTime - lastLoginTime > oneDay) {
-            updateUserPresence(user.uid, false);
-            signOut(auth).then(() => {
-              localStorage.removeItem('session-timestamp');
-              router.push('/login');
-            });
-            return;
-          }
-        } else {
-             router.push('/login');
-             return;
-        }
-
         setUser(user);
         await updateUserPresence(user.uid, true);
         const userProfile = await getCurrentUser(user.uid);
@@ -74,6 +55,7 @@ export default function Home() {
           }
         } else {
             setLoading(false);
+            router.push('/login');
         }
 
       } else {
@@ -106,6 +88,7 @@ export default function Home() {
   }
   
   if (!user) {
+    router.push('/login');
     return null;
   }
 
