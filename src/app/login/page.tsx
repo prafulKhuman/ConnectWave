@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone } from '@/lib/firebase';
+import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,7 +58,6 @@ export default function LoginPage() {
     };
     try {
       await confirmationResult.confirm(otp);
-      localStorage.setItem('session-timestamp', Date.now().toString());
       toast({ title: 'Success', description: 'You are now logged in.' });
       router.push('/');
     } catch (error) {
@@ -77,18 +76,26 @@ export default function LoginPage() {
 
         if (user && user.pin === pin) {
           await signInWithEmailAndPassword(auth, user.email, user.password);
-          localStorage.setItem('session-timestamp', Date.now().toString());
-          toast({ title: 'Success', description: 'You are now logged in.' });
-          router.push('/');
+          
+          // Wait for auth state to be confirmed before redirecting
+          const unsubscribe = onAuthUserChanged((authUser) => {
+            if (authUser) {
+              toast({ title: 'Success', description: 'You are now logged in.' });
+              router.push('/');
+              unsubscribe(); // Clean up the listener
+            }
+          });
+
         } else {
             toast({ variant: 'destructive', title: 'Invalid Credentials', description: 'The mobile number or PIN is incorrect.' });
+            setLoading(false);
         }
     } catch (error) {
         console.error(error);
         toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
-    } finally {
         setLoading(false);
-    }
+    } 
+    // Do not set loading to false here, as the page will redirect
   };
 
 
@@ -207,3 +214,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

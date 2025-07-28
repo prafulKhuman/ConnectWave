@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { 
     getFirestore, 
     collection, 
@@ -83,8 +83,12 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (user: Contact) => {
-    await setDoc(doc(db, "users", user.id), user);
+const addUserToFirestore = async (user: Omit<Contact, 'avatar'>) => {
+    const newUser = {
+        ...user,
+        avatar: '',
+    }
+    await setDoc(doc(db, "users", user.id), newUser);
 }
 
 const getCurrentUser = async (userId: string): Promise<Contact | null> => {
@@ -348,6 +352,7 @@ export {
     onAuthUserChanged, 
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
+    signOut,
     getContactByPhone,
     addUserToFirestore,
     getCurrentUser,
@@ -367,3 +372,5 @@ export {
     clearChatHistory,
     updateBlockStatus
 };
+
+    
