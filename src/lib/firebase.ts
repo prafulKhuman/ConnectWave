@@ -15,7 +15,8 @@ import {
     orderBy,
     serverTimestamp,
     updateDoc,
-    deleteDoc
+    deleteDoc,
+    writeBatch
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
@@ -208,7 +209,8 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
         // Create a new chat
         const chatRef = await addDoc(collection(db, "chats"), {
             type: 'direct',
-            participantIds: participantIds
+            participantIds: participantIds,
+            blocked: { isBlocked: false, by: '' }
         });
         // Optional: Add an initial message
         await addDoc(collection(db, "chats", chatRef.id, "messages"), {
@@ -230,6 +232,26 @@ const uploadAvatar = async (userId: string, file: File): Promise<string> => {
     await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
+};
+
+const clearChatHistory = async (chatId: string) => {
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    const querySnapshot = await getDocs(messagesRef);
+    
+    const batch = writeBatch(db);
+    querySnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+    });
+    
+    await batch.commit();
+};
+
+const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: string) => {
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+        'blocked.isBlocked': isBlocked,
+        'blocked.by': isBlocked ? blockedBy : ''
+    });
 };
 
 
@@ -284,5 +306,7 @@ export {
     uploadAvatar,
     getContacts,
     addContact,
-    deleteContact
+    deleteContact,
+    clearChatHistory,
+    updateBlockStatus
 };

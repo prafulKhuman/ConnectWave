@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2 } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,8 +14,21 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { getMessagesForChat, sendMessageInChat } from '@/lib/firebase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus } from '@/lib/firebase';
+import { ViewContactDialog } from './view-contact-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type ConversationViewProps = {
   selectedChat: Chat | null;
@@ -27,6 +40,13 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [isClearChatAlertOpen, setIsClearChatAlertOpen] = React.useState(false);
+  const [isBlockUserAlertOpen, setIsBlockUserAlertOpen] = React.useState(false);
+  const [isViewContactDialogOpen, setIsViewContactDialogOpen] = React.useState(false);
+  const [clearChatLoading, setClearChatLoading] = React.useState(false);
+  const [blockUserLoading, setBlockUserLoading] = React.useState(false);
+
+  const { toast } = useToast();
 
   React.useEffect(() => {
     if (selectedChat) {
@@ -54,13 +74,47 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         setNewMessage('');
       } catch (error) {
         console.error("Error sending message: ", error);
-        // Optionally show a toast notification for the error
+        toast({ variant: "destructive", title: "Error", description: "Failed to send message."});
       } finally {
         setLoading(false);
       }
     }
   };
 
+  const handleClearChat = async () => {
+    if (!selectedChat) return;
+    setClearChatLoading(true);
+    try {
+      await clearChatHistory(selectedChat.id);
+      toast({ title: "Chat Cleared", description: "Your message history has been cleared." });
+      setIsClearChatAlertOpen(false);
+    } catch (error) {
+      console.error("Error clearing chat: ", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to clear chat." });
+    } finally {
+      setClearChatLoading(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!selectedChat) return;
+    setBlockUserLoading(true);
+    const isCurrentlyBlocked = selectedChat.blocked?.isBlocked;
+    try {
+      await updateBlockStatus(selectedChat.id, !isCurrentlyBlocked, currentUser.id);
+      toast({ 
+        title: isCurrentlyBlocked ? "User Unblocked" : "User Blocked", 
+        description: `You have ${isCurrentlyBlocked ? 'unblocked' : 'blocked'} ${otherParticipant?.name}.`
+      });
+      setIsBlockUserAlertOpen(false);
+    } catch (error) {
+      console.error("Error blocking user: ", error);
+      toast({ variant: "destructive", title: "Error", description: `Failed to ${isCurrentlyBlocked ? 'unblock' : 'block'} user.` });
+    } finally {
+      setBlockUserLoading(false);
+    }
+  };
+  
   if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-background p-4 text-center">
@@ -84,6 +138,10 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     avatar: selectedChat.type === 'group' ? selectedChat.avatar : otherParticipant?.avatar,
     status: selectedChat.type === 'direct' ? (otherParticipant?.online ? 'Online' : `Last seen ${otherParticipant?.lastSeen || 'recently'}`) : `${selectedChat.participants.length} members`,
   };
+  
+  const isChatBlocked = selectedChat.blocked?.isBlocked;
+  const amIBlocked = isChatBlocked && selectedChat.blocked?.by !== currentUser.id;
+  const didIBlock = isChatBlocked && selectedChat.blocked?.by === currentUser.id;
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -110,9 +168,17 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>View Contact</DropdownMenuItem>
-              <DropdownMenuItem>Clear Chat</DropdownMenuItem>
-              <DropdownMenuItem>Block</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsViewContactDialogOpen(true)}>
+                <Eye className="mr-2 h-4 w-4" /> View Contact
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setIsClearChatAlertOpen(true)}>
+                <Trash2 className="mr-2 h-4 w-4" /> Clear Chat
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setIsBlockUserAlertOpen(true)} className={isChatBlocked ? "text-destructive" : ""}>
+                {isChatBlocked ? <UserX className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
+                {isChatBlocked ? 'Unblock' : 'Block'}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -152,24 +218,78 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </ScrollArea>
       </div>
 
-
       <footer className="flex-shrink-0 border-t bg-card p-3">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" type="button" disabled={loading}><Smile /></Button>
-          <Button variant="ghost" size="icon" type="button" disabled={loading}><Paperclip /></Button>
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1"
-            autoComplete="off"
-            disabled={loading}
-          />
-          <Button type="submit" size="icon" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send />}
-          </Button>
-        </form>
+        {isChatBlocked ? (
+          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+             <Ban className="mr-2 h-4 w-4" />
+             {didIBlock ? `You blocked ${otherParticipant?.name}.` : `You are blocked by ${otherParticipant?.name}.`}
+          </div>
+        ) : (
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" type="button" disabled={loading}><Smile /></Button>
+            <Button variant="ghost" size="icon" type="button" disabled={loading}><Paperclip /></Button>
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1"
+              autoComplete="off"
+              disabled={loading}
+            />
+            <Button type="submit" size="icon" disabled={loading || !newMessage.trim()}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send />}
+            </Button>
+          </form>
+        )}
       </footer>
+
+      {/* Dialogs */}
+      <ViewContactDialog
+        isOpen={isViewContactDialogOpen}
+        setIsOpen={setIsViewContactDialogOpen}
+        contact={otherParticipant}
+      />
+
+      <AlertDialog open={isClearChatAlertOpen} onOpenChange={setIsClearChatAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all messages in this chat. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearChat} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={clearChatLoading}>
+              {clearChatLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Clear Chat
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBlockUserAlertOpen} onOpenChange={setIsBlockUserAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+                {isChatBlocked ? 'Unblock User' : 'Block User'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isChatBlocked 
+                ? `If you unblock ${otherParticipant?.name}, you will be able to send messages again.`
+                : `Blocking ${otherParticipant?.name} will prevent them from sending you messages in this chat.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBlockUser} className={isChatBlocked ? "" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"} disabled={blockUserLoading}>
+              {blockUserLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isChatBlocked ? 'Unblock' : 'Block'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
