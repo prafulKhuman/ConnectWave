@@ -104,14 +104,15 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (user: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'phone'>) => {
+const addUserToFirestore = async (userId: string, user: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'id'>) => {
     const newUser = {
         ...user,
+        id: userId,
         avatar: '',
         online: false,
         lastSeen: serverTimestamp(),
     }
-    await setDoc(doc(db, "users", user.id), newUser);
+    await setDoc(doc(db, "users", userId), newUser);
 }
 
 const getCurrentUser = async (userId: string): Promise<Contact | null> => {
@@ -506,3 +507,5 @@ export {
     hashValue,
     compareValue
 };
+
+    

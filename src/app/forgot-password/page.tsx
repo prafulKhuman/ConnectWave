@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, KeyRound, Loader2, Lock } from 'lucide-react';
-import { sendPasswordResetEmail, auth, updateUserProfile, hashValue } from '@/lib/firebase';
+import { sendPasswordResetEmail, auth, updateUserProfile, hashValue, compareValue } from '@/lib/firebase';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -68,7 +68,7 @@ export default function ForgotPasswordPage() {
     } catch (error: any) {
       console.error(error);
       let errorMessage = 'Failed to reset PIN. Please try again.';
-      if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-password') {
         errorMessage = 'Invalid email or password. Please check your credentials.';
       }
       toast({ variant: 'destructive', title: 'Error', description: errorMessage });
@@ -176,3 +176,5 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+
+    

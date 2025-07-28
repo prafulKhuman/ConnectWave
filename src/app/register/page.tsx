@@ -41,19 +41,20 @@ export default function RegisterPage() {
       // Step 2: Send verification email
       await sendVerificationEmailHelper(firebaseUser);
 
-      // Step 3: Hash the PIN
+      // Step 3: Hash the PIN and password
       const hashedPin = await hashValue(pin);
+      const hashedPassword = await hashValue(password);
 
 
       // Step 4: Add user to Firestore database
-      const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'phone'> = {
-        id: firebaseUser.uid,
+      const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen'| 'id'> = {
         name,
         email,
         mobileNumber,
         pin: hashedPin,
+        password: hashedPassword,
       };
-      await addUserToFirestore(newUser);
+      await addUserToFirestore(firebaseUser.uid, newUser);
 
       toast({ title: 'Registration Successful', description: 'A verification email has been sent. Please verify your email before logging in.' });
       router.push('/login');
@@ -163,3 +164,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    

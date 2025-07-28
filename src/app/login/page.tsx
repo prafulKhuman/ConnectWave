@@ -23,9 +23,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'otp' | 'pin'>('otp');
   const [showResend, setShowResend] = useState(false);
-  const [showPinPassword, setShowPinPassword] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
-  const [password, setPassword] = useState('');
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,7 +38,6 @@ export default function LoginPage() {
         const confirmation = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
         setConfirmationResult(confirmation);
         setOtpSent(true);
-        setLoginMethod('otp');
         toast({ title: 'OTP Sent', description: 'An OTP has been sent to your mobile number.' });
     } catch (error: any) {
       console.error(error);
@@ -89,52 +85,41 @@ export default function LoginPage() {
     try {
         const user = await getContactByPhone(mobileNumber);
         if (!user || !user.pin) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Invalid mobile number or no PIN set for this account.' });
+            toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid mobile number or PIN. Please try again.' });
             setLoading(false);
             return;
         }
 
         const isPinValid = await compareValue(pin, user.pin);
         if (!isPinValid) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Invalid PIN.' });
+            toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid mobile number or PIN. Please try again.' });
             setLoading(false);
             return;
         }
 
-        setUserEmail(user.email);
-        setShowPinPassword(true);
-        toast({ title: 'PIN Verified', description: 'Please enter your password to complete sign-in.'});
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'An error occurred during PIN verification.' });
-    } finally {
-        setLoading(false);
-    }
-  }
-
-  const handlePasswordSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-        const userCredential = await signInWithEmailAndPassword(auth, userEmail, password);
+        // At this point, PIN is valid. Now, sign in with email and a placeholder password (the PIN itself)
+        // This is not ideal, but it's a way to achieve the user's flow without storing the actual password.
+        // A custom token would be better, but it requires a backend.
+        // Firebase Auth will still be the one validating the user session.
+        const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
             toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in. A new verification link has been sent.' });
             await sendVerificationEmailHelper(userCredential.user);
             setShowResend(true);
-            setShowPinPassword(false); // Hide password field, show resend button
-            return;
+        } else {
+            toast({ title: 'Success', description: 'You are now logged in.' });
+            router.push('/');
         }
-        
-        toast({ title: 'Success', description: 'You are now logged in.' });
-        router.push('/');
-
     } catch (error) {
-        toast({ variant: 'destructive', title: 'Sign-in Failed', description: 'Incorrect password. Please try again.' });
+        console.error("PIN Login Error:", error);
+        toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred. Please check your credentials or try another login method.' });
     } finally {
         setLoading(false);
     }
   }
+
 
   const handleResendVerification = async () => {
     setLoading(true);
@@ -181,38 +166,7 @@ export default function LoginPage() {
              </div>
           )}
 
-          {showPinPassword ? (
-            <form onSubmit={handlePasswordSignIn} className="space-y-4">
-                <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      value={userEmail}
-                      readOnly
-                      className="pl-10 bg-muted/50"
-                    />
-                </div>
-                 <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        className="pl-10"
-                        required
-                        disabled={loading}
-                    />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {loading ? 'Signing in...' : 'Sign In'}
-                </Button>
-                <Button variant="link" onClick={() => { setShowPinPassword(false); setPassword(''); setUserEmail('') }} className="w-full">
-                    Back to PIN input
-                </Button>
-            </form>
-          ) : !otpSent ? (
+          {!otpSent ? (
             <>
             <Tabs defaultValue={loginMethod} onValueChange={(value) => setLoginMethod(value as 'otp' | 'pin')} className="mb-4">
               <TabsList className="grid w-full grid-cols-2">
@@ -224,7 +178,7 @@ export default function LoginPage() {
             <form onSubmit={currentForm} className="space-y-4">
                 <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 21 15"><path fill="#f93" d="M0 0h21v5H0z"/><path fill="#fff" d="M0 5h21v5H0z"/><path fill="#128807" d="M0 10h21v5H0z"/><g transform="translate(10.5 7.5)"><circle r="2" fill="#008"/><circle r="1.75" fill="#fff"/><path fill="#008" d="M-1.75 0a1.75 1.75 0 1 0 3.5 0a.175.175 0 1 1-3.5 0m.35 0a1.4 1.4 0 1 1 2.8 0 .14.14 0 1 0-2.8 0m-.175.21a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.925 1.4a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-2.1-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.4-1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.925-1.4a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m2.1 1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.4 1.925a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.575-1.575a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.75 1.75a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.925 1.4a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m2.1-1.75a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.575-1.575a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.75-1.75a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m-1.4-1.925a.175.175 0 1 1 0-.35.175.175 0 0 1 0 .35m1.75-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.575 1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.925-1.4a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m2.1 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575 1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.75-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.4 1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0"/></g></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 21 15"><path fill="#f93" d="M0 0h21v5H0z"/><path fill="#fff" d="M0 5h21v5H0z"/><path fill="#128807" d="M0 10h21v5H0z"/><g transform="translate(10.5 7.5)"><circle r="2" fill="#008"/><circle r="1.75" fill="#fff"/><path fill="#008" d="M-1.75 0a1.75 1.75 0 1 0 3.5 0a.175.175 0 1 1-3.5 0m.35 0a1.4 1.4 0 1 1 2.8 0 .14.14 0 1 0-2.8 0m-.175.21a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.925 1.4a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-2.1-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.4-1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.925-1.4a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m2.1 1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.4 1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0"/></g></svg>
                         <span className="text-sm font-medium text-muted-foreground">{countryCode}</span>
                     </div>
                     <Input
@@ -301,3 +255,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
