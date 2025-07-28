@@ -15,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import Image from 'next/image';
 import { getMessagesForChat, sendMessageInChat } from '@/lib/firebase';
 
 type ConversationViewProps = {
@@ -78,7 +77,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   };
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-background overflow-hidden">
       <header className="flex-shrink-0 flex items-center justify-between border-b bg-card p-3">
         <div className="flex items-center gap-4">
           <UserAvatar
