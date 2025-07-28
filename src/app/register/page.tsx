@@ -41,9 +41,8 @@ export default function RegisterPage() {
       // Step 2: Send verification email
       await sendVerificationEmailHelper(firebaseUser);
 
-      // Step 3: Hash the PIN and Password
+      // Step 3: Hash the PIN
       const hashedPin = await hashValue(pin);
-      const hashedPassword = await hashValue(password);
 
 
       // Step 4: Add user to Firestore database
@@ -52,7 +51,6 @@ export default function RegisterPage() {
         email,
         phone: mobileNumber,
         pin: hashedPin,
-        password: hashedPassword, 
       };
       await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
 

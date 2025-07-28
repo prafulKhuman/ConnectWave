@@ -5,7 +5,6 @@ export type Contact = {
   avatar: string;
   email: string;
   pin: string;
-  password: string;
   online?: boolean;
   lastSeen?: Date; // Using Date object for comparisons
   phone?: string;
