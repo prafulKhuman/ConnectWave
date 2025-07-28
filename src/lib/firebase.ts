@@ -17,7 +17,8 @@ import {
     updateDoc,
     deleteDoc,
     writeBatch,
-    Timestamp
+    Timestamp,
+    limit
 } from "firebase/firestore";
 import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -119,8 +120,8 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     const q = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
     
     return onSnapshot(q, async (querySnapshot) => {
-        const chatPromises = querySnapshot.docs.map(async (doc) => {
-            const chatData = doc.data();
+        const chatPromises = querySnapshot.docs.map(async (chatDoc) => {
+            const chatData = chatDoc.data();
             
             const participants = await Promise.all(
                 chatData.participantIds.map(async (id: string) => {
@@ -130,7 +131,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             );
 
             // Fetch last message for chat list display
-            const messagesQuery = query(collection(db, "chats", doc.id, "messages"), orderBy("timestamp", "desc"));
+            const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
             const messagesSnapshot = await getDocs(messagesQuery);
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
@@ -144,7 +145,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             });
 
             return {
-                id: doc.id,
+                id: chatDoc.id,
                 ...chatData,
                 participants: participants.filter(Boolean) as Contact[],
                 messages: messages,
@@ -297,6 +298,7 @@ const manageUserPresence = (userId: string) => {
 
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
+            // Instead of returning, update Firestore directly
             updateDoc(userStatusFirestoreRef, {
                 online: false,
                 lastSeen: serverTimestamp(),
@@ -319,12 +321,14 @@ const manageUserPresence = (userId: string) => {
     });
 
     onValue(userStatusDatabaseRef, (snapshot) => {
-        const status = snapshot.val();
-        if (status?.state === 'offline') {
-            updateDoc(userStatusFirestoreRef, {
-                online: false,
-                lastSeen: new Date(status.last_changed),
-            });
+        if (snapshot.exists()) {
+            const status = snapshot.val();
+            if (status.state === 'offline') {
+                updateDoc(userStatusFirestoreRef, {
+                    online: false,
+                    lastSeen: new Date(status.last_changed),
+                });
+            }
         }
     });
 };

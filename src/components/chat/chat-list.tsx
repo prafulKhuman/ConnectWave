@@ -162,7 +162,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
           <ul className="space-y-1">
             {filteredChats.map((chat) => {
               const details = getChatDetails(chat);
-              const lastMessage = chat.messages[chat.messages.length - 1];
+              const lastMessage = chat.messages[0];
 
               return (
                 <li key={chat.id} className="relative group">
