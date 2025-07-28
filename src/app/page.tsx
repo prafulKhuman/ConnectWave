@@ -91,8 +91,7 @@ export default function Home() {
     });
 
     return () => unsubscribeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [router, selectedChat]);
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
