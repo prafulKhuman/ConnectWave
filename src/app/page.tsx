@@ -3,13 +3,14 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, updateUserPresence } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Chat, Contact } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
+import { signOut } from 'firebase/auth';
 
 export default function Home() {
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -20,18 +21,10 @@ export default function Home() {
   const router = useRouter();
 
   React.useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (auth.currentUser) {
-        updateUserPresence(auth.currentUser.uid, false);
-      }
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     const unsubscribeAuth = onAuthUserChanged(async (user) => {
       if (user) {
         setUser(user);
-        await updateUserPresence(user.uid, true);
+        manageUserPresence(user.uid);
         const userProfile = await getCurrentUser(user.uid);
         setCurrentUser(userProfile);
         
@@ -65,9 +58,9 @@ export default function Home() {
     });
 
     return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
         if (auth.currentUser) {
-            updateUserPresence(auth.currentUser.uid, false);
+            // This will be handled by onDisconnect, but as a fallback
+            signOut(auth);
         }
         unsubscribeAuth();
     };

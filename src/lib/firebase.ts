@@ -19,6 +19,7 @@ import {
     writeBatch,
     Timestamp
 } from "firebase/firestore";
+import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
@@ -32,12 +33,14 @@ const firebaseConfig = {
   apiKey: "AIzaSyBPcxs52oOTHm42VGbagazgQUKgVCzKV08",
   authDomain: "connectwave-6mfth.firebaseapp.com",
   measurementId: "",
-  messagingSenderId: "833165766531"
+  messagingSenderId: "833165766531",
+  databaseURL: "https://connectwave-6mfth-default-rtdb.firebaseio.com",
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const storage = getStorage(app);
 
 // This will ensure that the user's session is persisted.
@@ -269,18 +272,44 @@ const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: 
     });
 };
 
-const updateUserPresence = async (userId: string, online: boolean) => {
+const manageUserPresence = (userId: string) => {
     if (!userId) return;
-    const userDocRef = doc(db, "users", userId);
-    const presenceData: { online: boolean; lastSeen?: any } = { online };
-    if (online) {
-      presenceData.lastSeen = null; // Clear lastSeen when user is online
-    } else {
-      presenceData.lastSeen = serverTimestamp(); // Set lastSeen when user is offline
-    }
-    await updateDoc(userDocRef, presenceData);
-};
 
+    const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
+    const userStatusFirestoreRef = doc(db, '/users/' + userId);
+
+    const isOfflineForDatabase = {
+        state: 'offline',
+        last_changed: rtdbServerTimestamp(),
+    };
+
+    const isOnlineForDatabase = {
+        state: 'online',
+        last_changed: rtdbServerTimestamp(),
+    };
+
+    const isOfflineForFirestore = {
+        online: false,
+        lastSeen: serverTimestamp(),
+    };
+
+    const isOnlineForFirestore = {
+        online: true,
+    };
+    
+    onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
+        if (snapshot.val() === false) {
+            // If we're not connected, we can't do anything further.
+            updateDoc(userStatusFirestoreRef, isOfflineForFirestore);
+            return;
+        }
+
+        onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+            rtdbSet(userStatusDatabaseRef, isOnlineForDatabase);
+            updateDoc(userStatusFirestoreRef, isOnlineForFirestore);
+        });
+    });
+};
 
 // New Contact Management Functions
 
@@ -328,7 +357,7 @@ export {
     createNewGroupInFirestore,
     getAvailableContacts, // Kept for potential other uses, but Create Group will use getContacts
     updateUserProfile,
-    updateUserPresence,
+    manageUserPresence,
     findUserByEmail,
     createChatWithUser,
     uploadAvatar,

@@ -12,7 +12,7 @@ import { NewGroupDialog } from './new-group-dialog';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { auth, updateUserPresence } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +43,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
   const handleLogout = async () => {
     setLoading(true);
     try {
-      await updateUserPresence(currentUser.id, false);
+      // The onDisconnect handler in firebase.ts will manage the offline status
       await signOut(auth);
       localStorage.removeItem('session-timestamp');
       toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
