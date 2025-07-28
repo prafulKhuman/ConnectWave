@@ -71,12 +71,13 @@ export default function Home() {
                 setLoading(false);
             }
             // Update selected chat with new data if it exists, or select the first chat.
-            if (selectedChat) {
-              const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
-              setSelectedChat(updatedSelectedChat || newChats[0] || null);
-            } else {
-              setSelectedChat(newChats[0] || null);
-            }
+            setSelectedChat((currentSelectedChat) => {
+               if (currentSelectedChat) {
+                    const updatedSelectedChat = newChats.find(c => c.id === currentSelectedChat.id);
+                    return updatedSelectedChat || newChats[0] || null;
+                }
+                return newChats[0] || null;
+            });
           });
           return () => unsubscribeChats();
         } else {
@@ -152,7 +153,7 @@ export default function Home() {
   const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
 
 
-  if (loading || !currentUser) {
+  if (loading && !isAppLocked) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <div className="flex flex-col items-center gap-4">
@@ -166,7 +167,7 @@ export default function Home() {
     );
   }
   
-  if (!user) {
+  if (!user && !loading) {
     router.push('/login');
     return null; // Render nothing while redirecting
   }
@@ -262,11 +263,11 @@ export default function Home() {
                 chats={chats}
                 selectedChat={selectedChat}
                 setSelectedChat={setSelectedChat}
-                currentUser={currentUser}
+                currentUser={currentUser!}
                 />
             </Sidebar>
             <SidebarInset className="flex flex-1 flex-col">
-                <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
+                <ConversationView selectedChat={selectedChat} currentUser={currentUser!}/>
             </SidebarInset>
             </div>
         </SidebarProvider>

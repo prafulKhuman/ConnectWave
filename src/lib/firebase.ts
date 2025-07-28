@@ -229,36 +229,6 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     });
 };
 
-
-const getParticipantsWithRealtimeStatus = (participantIds: string[], callback: (participants: { [key: string]: Contact }) => void) => {
-    const unsubscribes = participantIds.map(id => {
-        const userDocRef = doc(db, "users", id);
-        return onSnapshot(userDocRef, (doc) => {
-            if (doc.exists()) {
-                const data = doc.data();
-                let lastSeenDate: Date | undefined = undefined;
-
-                if (data.lastSeen instanceof Timestamp) {
-                    lastSeenDate = data.lastSeen.toDate();
-                } else if (typeof data.lastSeen === 'number') {
-                    lastSeenDate = new Date(data.lastSeen);
-                }
-
-                const contact = {
-                    id: doc.id,
-                    ...data,
-                    lastSeen: lastSeenDate,
-                } as Contact;
-
-                callback({ [id]: contact });
-            }
-        });
-    });
-
-    return () => unsubscribes.forEach(unsub => unsub());
-};
-
-
 const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, participants: Contact[]) => {
     const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
 
@@ -505,7 +475,6 @@ export {
     clearChatHistory,
     deleteChat,
     updateBlockStatus,
-    getParticipantsWithRealtimeStatus,
     uploadImageForChat,
     hashValue,
     compareValue,
