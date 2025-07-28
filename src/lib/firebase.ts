@@ -83,10 +83,12 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (user: Omit<Contact, 'avatar'>) => {
+const addUserToFirestore = async (user: Omit<Contact, 'avatar' | 'online' | 'lastSeen'>) => {
     const newUser = {
         ...user,
         avatar: '',
+        online: false,
+        lastSeen: serverTimestamp(),
     }
     await setDoc(doc(db, "users", user.id), newUser);
 }
@@ -295,24 +297,21 @@ const manageUserPresence = (userId: string) => {
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
             // If we're not connected, we can't do anything further.
-            // This is a fallback. The main onDisconnect will handle this.
-             updateDoc(userStatusFirestoreRef, {
-                online: false,
-                lastSeen: serverTimestamp(),
-            });
             return;
         }
 
-        const onDisconnectRef = onDisconnect(userStatusDatabaseRef);
-        onDisconnectRef.set(isOfflineForDatabase).then(() => {
+        onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
             rtdbSet(userStatusDatabaseRef, isOnlineForDatabase);
-            updateDoc(userStatusFirestoreRef, { online: true });
         });
     });
-     // Separate listener for updating Firestore on disconnect
-    const userStatusRef = rtdbRef(rtdb, '/status/' + userId);
-    onValue(userStatusRef, (snapshot) => {
-        if (snapshot.val()?.state === 'offline') {
+
+    onValue(userStatusDatabaseRef, (snapshot) => {
+        const status = snapshot.val();
+        if (status && status.state === 'online') {
+            updateDoc(userStatusFirestoreRef, {
+                online: true,
+            });
+        } else {
             updateDoc(userStatusFirestoreRef, {
                 online: false,
                 lastSeen: serverTimestamp(),

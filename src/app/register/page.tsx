@@ -39,16 +39,14 @@ export default function RegisterPage() {
       const firebaseUser = userCredential.user;
 
       // Step 2: Add user to Firestore database
-      const newUser: Omit<Contact, 'avatar'> & { avatar?: string } = {
-        id: firebaseUser.uid,
+      const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'> = {
         name,
         email,
         phone: mobileNumber,
         pin,
         password, // Storing password here for PIN login fallback. In a real app, this is not recommended.
-        online: true,
       };
-      await addUserToFirestore(newUser as Contact);
+      await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
 
       toast({ title: 'Registration Successful', description: 'You can now log in with your credentials.' });
       router.push('/login');
