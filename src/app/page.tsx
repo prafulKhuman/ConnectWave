@@ -174,7 +174,7 @@ export default function Home() {
 
   return (
     <main className="h-screen w-full bg-background">
-      <Dialog open={isPinModalOpen}>
+      <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
         <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} hideCloseButton>
             <DialogHeader>
               <DialogTitle className="text-center text-2xl">Enter App Lock PIN</DialogTitle>
