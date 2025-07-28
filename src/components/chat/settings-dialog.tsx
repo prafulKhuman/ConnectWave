@@ -2,6 +2,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -15,16 +16,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, User, Lock, UserPlus, Users, Upload, Loader2 } from 'lucide-react';
+import { Settings, User, Lock, UserPlus, Users, Upload, Loader2, Contact } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { Contact } from '@/lib/data';
+import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, findUserByEmail, createChatWithUser, uploadAvatar } from '@/lib/firebase';
-import { v4 as uuidv4 } from 'uuid';
+import { updateUserProfile, uploadAvatar } from '@/lib/firebase';
 
 type SettingsDialogProps = {
-  currentUser: Contact;
+  currentUser: ContactType;
 };
 
 export function SettingsDialog({ currentUser }: SettingsDialogProps) {
@@ -34,12 +34,11 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [confirmPin, setConfirmPin] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
-  const [contactEmail, setContactEmail] = useState('');
   
   const [profileLoading, setProfileLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
-  const [contactLoading, setContactLoading] = useState(false);
-
+  
+  const router = useRouter();
   const { toast } = useToast();
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,35 +94,10 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
-  const handleAddContact = async () => {
-    if (!contactEmail.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please enter an email address.' });
-      return;
-    }
-    setContactLoading(true);
-    try {
-        const foundUser = await findUserByEmail(contactEmail);
-        if (!foundUser) {
-            toast({ variant: 'destructive', title: 'User Not Found', description: 'No user found with that email address.' });
-            return;
-        }
-
-        if(foundUser.id === currentUser.id) {
-            toast({ variant: 'destructive', title: 'Error', description: 'You cannot add yourself as a contact.' });
-            return;
-        }
-
-        await createChatWithUser(currentUser.id, foundUser.id);
-        toast({ title: 'Contact Added', description: `${foundUser.name} has been added to your chats.` });
-        setContactEmail('');
-
-    } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to add contact.' });
-    } finally {
-        setContactLoading(false);
-    }
-  };
+  const navigateToContacts = () => {
+    router.push('/contacts');
+    setIsOpen(false);
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -144,7 +118,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile"><User className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="security"><Lock className="h-4 w-4" /></TabsTrigger>
-            <TabsTrigger value="contacts"><UserPlus className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="contacts"><Contact className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="group"><Users className="h-4 w-4" /></TabsTrigger>
           </TabsList>
           
@@ -185,15 +159,11 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           </TabsContent>
           
           <TabsContent value="contacts" className="py-4 space-y-4">
-            <h3 className="font-semibold">Add New Contact</h3>
-            <p className="text-sm text-muted-foreground">Add a new contact by their email to start a chat.</p>
-             <div className="space-y-2">
-                <Label htmlFor="contact-email">User's Email</Label>
-                <Input id="contact-email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="name@example.com" disabled={contactLoading} />
-             </div>
-             <Button onClick={handleAddContact} className="w-full" disabled={contactLoading}>
-                {contactLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {contactLoading ? "Adding..." : "Find and Add Contact"}
+            <h3 className="font-semibold">Manage Contacts</h3>
+            <p className="text-sm text-muted-foreground pb-2">Add, remove, or view your contacts on the contacts page.</p>
+            <Button onClick={navigateToContacts} className="w-full">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Go to Contacts
             </Button>
           </TabsContent>
           

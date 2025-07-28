@@ -14,7 +14,8 @@ import {
     addDoc,
     orderBy,
     serverTimestamp,
-    updateDoc
+    updateDoc,
+    deleteDoc
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
@@ -173,6 +174,8 @@ const createNewGroupInFirestore = async (groupName: string, participantIds: stri
 }
 
 const getAvailableContacts = (currentUserId: string, callback: (contacts: Contact[]) => void) => {
+    // This function is now replaced by getContacts, but we keep it to avoid breaking changes if it's used elsewhere.
+    // For "Create Group", we will use getContacts instead.
     const q = query(collection(db, "users"), where("id", "!=", currentUserId));
     return onSnapshot(q, (querySnapshot) => {
         const contacts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
@@ -229,6 +232,36 @@ const uploadAvatar = async (userId: string, file: File): Promise<string> => {
     return downloadURL;
 };
 
+
+// New Contact Management Functions
+
+const getContacts = (userId: string, callback: (contacts: Contact[]) => void) => {
+    const contactsRef = collection(db, 'users', userId, 'contacts');
+    return onSnapshot(contactsRef, async (snapshot) => {
+        const contactPromises = snapshot.docs.map(async (doc) => {
+            const contactData = await getCurrentUser(doc.id);
+            return contactData;
+        });
+        const contacts = (await Promise.all(contactPromises)).filter(Boolean) as Contact[];
+        callback(contacts);
+    });
+};
+
+const addContact = async (userId: string, contactToAdd: Contact) => {
+    const contactRef = doc(db, 'users', userId, 'contacts', contactToAdd.id);
+    await setDoc(contactRef, { 
+        // We can store additional info here if needed, like a nickname
+        // For now, just creating the document is enough to establish the relationship
+        addedAt: serverTimestamp() 
+    });
+};
+
+const deleteContact = async (userId: string, contactId: string) => {
+    const contactRef = doc(db, 'users', userId, 'contacts', contactId);
+    await deleteDoc(contactRef);
+};
+
+
 export { 
     app, 
     auth, 
@@ -244,9 +277,12 @@ export {
     getMessagesForChat,
     sendMessageInChat,
     createNewGroupInFirestore,
-    getAvailableContacts,
+    getAvailableContacts, // Kept for potential other uses, but Create Group will use getContacts
     updateUserProfile,
     findUserByEmail,
     createChatWithUser,
-    uploadAvatar
+    uploadAvatar,
+    getContacts,
+    addContact,
+    deleteContact
 };
