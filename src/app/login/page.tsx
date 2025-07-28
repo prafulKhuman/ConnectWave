@@ -86,7 +86,7 @@ export default function LoginPage() {
     try {
         const user = await getContactByPhone(mobileNumber);
 
-        if (user && await comparePin(pin, user.pin)) {
+        if (user && user.pin && await comparePin(pin, user.pin)) {
           const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
 
           if (!userCredential.user.emailVerified) {
@@ -239,7 +239,7 @@ export default function LoginPage() {
                 </div>
                 <div className="text-right">
                     <Link href="/forgot-password" passHref>
-                        <Button variant="link" className="text-sm h-auto p-0">Forgot PIN/Password?</Button>
+                        <Button variant="link" className="text-sm h-auto p-0">Forgot Credentials?</Button>
                     </Link>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
