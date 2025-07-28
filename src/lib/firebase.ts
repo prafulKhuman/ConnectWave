@@ -48,17 +48,15 @@ const storage = getStorage(app);
 setPersistence(auth, browserLocalPersistence);
 
 const setupRecaptcha = (phone: string) => {
-    const recaptchaContainer = document.getElementById('recaptcha-container');
+    let recaptchaContainer = document.getElementById('recaptcha-container');
     if (!recaptchaContainer) {
-      const newContainer = document.createElement('div');
-      newContainer.id = 'recaptcha-container';
-      document.body.appendChild(newContainer);
+      recaptchaContainer = document.createElement('div');
+      recaptchaContainer.id = 'recaptcha-container';
+      document.body.appendChild(recaptchaContainer);
     }
     
     // Ensure the container is empty before creating a new verifier
-    while (recaptchaContainer && recaptchaContainer.firstChild) {
-      recaptchaContainer.removeChild(recaptchaContainer.firstChild);
-    }
+    recaptchaContainer.innerHTML = '';
 
     const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         'size': 'invisible',
@@ -104,7 +102,7 @@ const getContactByPhone = async (phone: string): Promise<Contact | null> => {
     return { id: userDoc.id, ...userDoc.data() } as Contact;
 }
 
-const addUserToFirestore = async (userId: string, user: Omit<Contact, 'avatar' | 'online' | 'lastSeen' | 'id'>) => {
+const addUserToFirestore = async (userId: string, user: Omit<Contact, 'avatar' | 'online' | 'lastSeen'| 'id' | 'pin'>) => {
     const newUser = {
         ...user,
         id: userId,
