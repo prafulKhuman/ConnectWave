@@ -20,9 +20,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { KeyRound, Loader2, Lock } from 'lucide-react';
+import { KeyRound, Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function Home() {
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -58,13 +59,16 @@ export default function Home() {
           // Check for App Lock PIN
           if (userProfile.pin) {
             setIsPinModalOpen(true);
+          } else {
+            setLoading(false);
           }
 
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
             setChats(newChats);
 
-            if (loading) {
-              setLoading(false);
+            // Don't set loading to false until PIN is entered if required
+            if (!userProfile.pin) {
+                setLoading(false);
             }
             // Update selected chat with new data if it exists, or select the first chat.
             if (selectedChat) {
@@ -98,6 +102,7 @@ export default function Home() {
     if (isPinValid) {
         toast({ title: "Access Granted", description: "Welcome back!" });
         setIsPinModalOpen(false);
+        setLoading(false); // Allow the main app to render
     } else {
         toast({ variant: 'destructive', title: "Invalid PIN", description: "The PIN you entered is incorrect." });
     }
@@ -129,6 +134,7 @@ export default function Home() {
         
         setIsForgotPinModalOpen(false);
         setIsPinModalOpen(false); // Unlock the app
+        setLoading(false); // Allow app to render
         setResetPassword('');
         setNewPin('');
         setConfirmNewPin('');
@@ -143,6 +149,8 @@ export default function Home() {
         setForgotPinLoading(false);
     }
   }
+
+  const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
 
 
   if (loading || !currentUser) {
@@ -166,7 +174,7 @@ export default function Home() {
 
   return (
     <main className="h-screen w-full bg-background">
-      <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
+      <Dialog open={isPinModalOpen}>
         <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} hideCloseButton>
             <DialogHeader>
               <DialogTitle className="text-center text-2xl">Enter App Lock PIN</DialogTitle>
@@ -234,29 +242,36 @@ export default function Home() {
                   <Label htmlFor="confirm-new-pin">Confirm New PIN</Label>
                   <Input id="confirm-new-pin" type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value)} maxLength={4} disabled={forgotPinLoading} required/>
                 </div>
-                <Button type="submit" className="w-full" disabled={forgotPinLoading}>
-                    {forgotPinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Set New PIN
-                </Button>
+                <DialogFooter className="!flex-row !justify-between">
+                    <Button type="button" variant="outline" onClick={() => { setIsForgotPinModalOpen(false); setIsPinModalOpen(true); }} disabled={forgotPinLoading}>
+                       <ArrowLeft className="mr-2 h-4 w-4" /> Back to Unlock
+                    </Button>
+                    <Button type="submit" className="w-fit" disabled={forgotPinLoading}>
+                        {forgotPinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Set New PIN
+                    </Button>
+                </DialogFooter>
             </form>
         </DialogContent>
       </Dialog>
     
-      <SidebarProvider>
-        <div className="flex h-full w-full">
-          <Sidebar side="left" className=" h-auto w-full max-w-sm border-r" style={{}} collapsible="none">
-            <ChatList
-              chats={chats}
-              selectedChat={selectedChat}
-              setSelectedChat={setSelectedChat}
-              currentUser={currentUser}
-            />
-          </Sidebar>
-          <SidebarInset className="flex flex-1 flex-col">
-            <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
+      <div className={cn('transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
+        <SidebarProvider>
+            <div className="flex h-full w-full">
+            <Sidebar side="left" className=" h-auto w-full max-w-sm border-r" style={{}} collapsible="none">
+                <ChatList
+                chats={chats}
+                selectedChat={selectedChat}
+                setSelectedChat={setSelectedChat}
+                currentUser={currentUser}
+                />
+            </Sidebar>
+            <SidebarInset className="flex flex-1 flex-col">
+                <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
+            </SidebarInset>
+            </div>
+        </SidebarProvider>
+      </div>
     </main>
   );
 }
