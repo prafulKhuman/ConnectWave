@@ -110,7 +110,11 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
       </header>
 
       <div className="flex-1 overflow-y-auto h-screen">
-        <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
+        <ScrollArea
+          // className="h-full"
+          style={{height : "100%"}}
+          viewportRef={scrollViewportRef}
+        >
           <div className="p-4 sm:p-6 space-y-4">
             {messages.map((message) => (
               <div

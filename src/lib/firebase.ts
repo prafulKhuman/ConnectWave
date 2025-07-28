@@ -16,12 +16,14 @@ import {
     serverTimestamp,
     updateDoc
 } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
 
 const firebaseConfig = {
   projectId: "connectwave-6mfth",
   appId: "1:833165766531:web:2435082a79fd6f098c50b6",
-  storageBucket: "connectwave-6mfth.firebasestorage.app",
+  storageBucket: "connectwave-6mfth.appspot.com",
   apiKey: "AIzaSyBPcxs52oOTHm42VGbagazgQUKgVCzKV08",
   authDomain: "connectwave-6mfth.firebaseapp.com",
   measurementId: "",
@@ -31,6 +33,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // This will ensure that the user's session is persisted.
 setPersistence(auth, browserLocalPersistence);
@@ -217,6 +220,14 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
     }
 };
 
+const uploadAvatar = async (userId: string, file: File): Promise<string> => {
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const storageRef = ref(storage, `avatars/${userId}/${fileName}`);
+    await uploadBytes(storageRef, file);
+    const downloadURL = await getDownloadURL(storageRef);
+    return downloadURL;
+};
 
 export { 
     app, 
@@ -236,5 +247,6 @@ export {
     getAvailableContacts,
     updateUserProfile,
     findUserByEmail,
-    createChatWithUser
+    createChatWithUser,
+    uploadAvatar
 };

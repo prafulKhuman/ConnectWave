@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, findUserByEmail, createChatWithUser } from '@/lib/firebase';
+import { updateUserProfile, findUserByEmail, createChatWithUser, uploadAvatar } from '@/lib/firebase';
 
 type SettingsDialogProps = {
   currentUser: Contact;
@@ -46,10 +46,18 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   };
   
   const handleProfileUpdate = async () => {
-    // In a real app, you would upload the avatarFile to a storage service like Firebase Storage
-    // and get a URL back. For now, we'll just update the name and use the preview URL.
+    let newAvatarUrl = currentUser.avatar;
+    if (avatarFile) {
+        try {
+            newAvatarUrl = await uploadAvatar(currentUser.id, avatarFile);
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Upload Failed", description: "Could not upload new profile picture." });
+            return;
+        }
+    }
+
     try {
-      await updateUserProfile(currentUser.id, { name, avatar: avatarPreview });
+      await updateUserProfile(currentUser.id, { name, avatar: newAvatarUrl });
       toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Failed to update profile." });
