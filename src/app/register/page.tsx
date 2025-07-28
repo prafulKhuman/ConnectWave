@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Smartphone, KeyRound, User, Lock, Loader2 } from 'lucide-react';
-import { createUserWithEmailAndPassword, addUserToFirestore } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import type { Contact } from '@/lib/data';
 
@@ -38,7 +38,10 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      // Step 2: Add user to Firestore database
+      // Step 2: Send verification email
+      await sendEmailVerification(firebaseUser);
+
+      // Step 3: Add user to Firestore database
       const newUser: Omit<Contact, 'id' | 'avatar' | 'online' | 'lastSeen'> = {
         name,
         email,
@@ -48,7 +51,7 @@ export default function RegisterPage() {
       };
       await addUserToFirestore({ id: firebaseUser.uid, ...newUser });
 
-      toast({ title: 'Registration Successful', description: 'You can now log in with your credentials.' });
+      toast({ title: 'Registration Successful', description: 'A verification email has been sent. Please verify your email before logging in.' });
       router.push('/login');
 
     } catch (error: any) {

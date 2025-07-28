@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged } from '@/lib/firebase';
+import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth, setupRecaptcha, getContactByPhone, onAuthUserChanged, sendEmailVerification } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Smartphone, KeyRound, AlertTriangle, Lock, Loader2 } from 'lucide-react';
+import { Shield, Smartphone, KeyRound, AlertTriangle, Lock, Loader2, MailCheck } from 'lucide-react';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'otp' | 'pin'>('otp');
+  const [showResend, setShowResend] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setShowResend(false);
     try {
         const fullPhoneNumber = `${countryCode}${mobileNumber}`;
         const recaptchaVerifier = setupRecaptcha(fullPhoneNumber);
@@ -51,35 +53,52 @@ export default function LoginPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setShowResend(false);
     if (!confirmationResult) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please send an OTP first.' });
         setLoading(false);
         return
     };
     try {
-      await confirmationResult.confirm(otp);
+      const result = await confirmationResult.confirm(otp);
+      if (!result.user.emailVerified) {
+        await signOut(auth);
+        toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in. A new verification link has been sent.' });
+        await sendEmailVerification(result.user);
+        setLoading(false);
+        setShowResend(true);
+        return;
+      }
       toast({ title: 'Success', description: 'You are now logged in.' });
       router.push('/');
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error', description: 'Invalid OTP. Please try again.' });
-    } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   const handlePinLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setShowResend(false);
     try {
         const user = await getContactByPhone(mobileNumber);
 
         if (user && user.pin === pin) {
-          await signInWithEmailAndPassword(auth, user.email, user.password);
+          const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+
+          if (!userCredential.user.emailVerified) {
+            await signOut(auth);
+            toast({ variant: 'destructive', title: 'Email Not Verified', description: 'Please verify your email address before logging in.' });
+            setLoading(false);
+            setShowResend(true);
+            return;
+          }
           
           // Wait for auth state to be confirmed before redirecting
           const unsubscribe = onAuthUserChanged((authUser) => {
-            if (authUser) {
+            if (authUser && authUser.emailVerified) {
               toast({ title: 'Success', description: 'You are now logged in.' });
               router.push('/');
               unsubscribe(); // Clean up the listener
@@ -95,8 +114,27 @@ export default function LoginPage() {
         toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred during sign-in. Please try again.' });
         setLoading(false);
     } 
-    // Do not set loading to false here, as the page will redirect
+    // Do not set loading to false here, as the page will redirect if successful
   };
+
+  const handleResendVerification = async () => {
+    setLoading(true);
+    try {
+      if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+        toast({ title: 'Email Sent', description: 'A new verification email has been sent.' });
+      } else {
+         // This case might happen if user was signed out. We need their email to sign them in again to resend.
+         // For simplicity, we'll guide them to log in again to trigger the flow.
+         toast({ variant: 'destructive', title: 'Error', description: 'Please try signing in again to resend the verification email.' });
+      }
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Error', description: 'Failed to resend verification email.' });
+    } finally {
+      setLoading(false);
+      setShowResend(false);
+    }
+  }
 
 
   return (
@@ -110,7 +148,20 @@ export default function LoginPage() {
             <CardDescription>Securely sign in to your account.</CardDescription>
         </CardHeader>
         <CardContent>
-          {loginMethod === 'otp' && !otpSent && (
+          {showResend && (
+             <div className="space-y-4 my-4 text-center">
+                <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3">
+                    <AlertTriangle className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
+                    <p className="text-sm text-yellow-800 font-medium">Your email is not verified. Please check your inbox for a verification link.</p>
+                </div>
+                <Button onClick={handleResendVerification} disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <MailCheck className="mr-2 h-4 w-4" />
+                    Resend Verification Email
+                </Button>
+             </div>
+          )}
+          {!otpSent && loginMethod === 'otp' && (
             <form onSubmit={handleSendOtp} className="space-y-4">
                 <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
@@ -214,5 +265,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

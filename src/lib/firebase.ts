@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification } from "firebase/auth";
 import { 
     getFirestore, 
     collection, 
@@ -413,6 +413,7 @@ export {
     createUserWithEmailAndPassword, 
     signInWithEmailAndPassword,
     signOut,
+    sendEmailVerification,
     getContactByPhone,
     addUserToFirestore,
     getCurrentUser,
