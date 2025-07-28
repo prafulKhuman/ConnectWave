@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signInWithPhoneNumber, ConfirmationResult, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, setupRecaptcha, getContactByPhone, sendEmailVerification as sendVerificationEmailHelper, compareValue } from '@/lib/firebase';
+import { auth, setupRecaptcha, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,12 +16,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
-  const [pin, setPin] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'otp' | 'pin'>('otp');
+  const [loginMethod, setLoginMethod] = useState<'otp' | 'email'>('otp');
   const [showResend, setShowResend] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -42,7 +43,7 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error(error);
       if (error.code === 'auth/billing-not-enabled' || error.code === 'auth/configuration-not-found') {
-        toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'OTP service is currently unavailable. You can sign in using your PIN instead.' });
+        toast({ variant: 'destructive', title: 'OTP Service Unavailable', description: 'OTP service is currently unavailable. You can sign in using your Email & Password instead.' });
       } else {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to send OTP. Please enter a valid 10-digit mobile number.' });
       }
@@ -79,25 +80,11 @@ export default function LoginPage() {
     }
   };
 
-  const handlePinLogin = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-        const user = await getContactByPhone(mobileNumber);
-        if (!user || !user.pin) {
-            toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid mobile number or PIN. Please try again.' });
-            setLoading(false);
-            return;
-        }
-
-        const isPinValid = await compareValue(pin, user.pin);
-        if (!isPinValid) {
-            toast({ variant: 'destructive', title: 'Login Failed', description: 'Invalid mobile number or PIN. Please try again.' });
-            setLoading(false);
-            return;
-        }
-
-        const userCredential = await signInWithEmailAndPassword(auth, user.email, pin);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
@@ -109,10 +96,10 @@ export default function LoginPage() {
             router.push('/');
         }
     } catch (error: any) {
-        console.error("PIN Login Error:", error);
+        console.error("Email Login Error:", error);
         let errorMessage = 'An error occurred. Please check your credentials or try another login method.';
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-password') {
-             errorMessage = 'Invalid PIN. Please try again.';
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-password' || error.code === 'auth/user-not-found') {
+             errorMessage = 'Invalid email or password. Please try again.';
         }
         toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
     } finally {
@@ -138,7 +125,7 @@ export default function LoginPage() {
     }
   }
 
-  const currentForm = loginMethod === 'otp' ? handleSendOtp : handlePinLogin;
+  const currentForm = loginMethod === 'otp' ? handleSendOtp : handleEmailLogin;
 
 
   return (
@@ -168,49 +155,61 @@ export default function LoginPage() {
 
           {!otpSent ? (
             <>
-            <Tabs defaultValue={loginMethod} onValueChange={(value) => setLoginMethod(value as 'otp' | 'pin')} className="mb-4">
+            <Tabs defaultValue={loginMethod} onValueChange={(value) => setLoginMethod(value as 'otp' | 'email')} className="mb-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="otp">Sign in with OTP</TabsTrigger>
-                <TabsTrigger value="pin">Sign in with PIN</TabsTrigger>
+                <TabsTrigger value="email">Sign in with Email</TabsTrigger>
               </TabsList>
             </Tabs>
 
             <form onSubmit={currentForm} className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 21 15"><path fill="#f93" d="M0 0h21v5H0z"/><path fill="#fff" d="M0 5h21v5H0z"/><path fill="#128807" d="M0 10h21v5H0z"/><g transform="translate(10.5 7.5)"><circle r="2" fill="#008"/><circle r="1.75" fill="#fff"/><path fill="#008" d="M-1.75 0a1.75 1.75 0 1 0 3.5 0a.175.175 0 1 1-3.5 0m.35 0a1.4 1.4 0 1 1 2.8 0 .14.14 0 1 0-2.8 0m-.175.21a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.925 1.4a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-2.1-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.4-1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.925-1.4a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m2.1 1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.4 1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0"/></g></svg>
-                        <span className="text-sm font-medium text-muted-foreground">{countryCode}</span>
-                    </div>
-                    <Input
-                        type="tel"
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value)}
-                        placeholder="Mobile number"
-                        required
-                        disabled={loading}
-                        className="flex-1"
-                    />
-                </div>
-                {loginMethod === 'pin' && (
-                    <>
+              {loginMethod === 'otp' ? (
+                  <div className="flex items-center gap-2">
+                      <div className="flex items-center rounded-md border border-input bg-background px-3 py-2">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 21 15"><path fill="#f93" d="M0 0h21v5H0z"/><path fill="#fff" d="M0 5h21v5H0z"/><path fill="#128807" d="M0 10h21v5H0z"/><g transform="translate(10.5 7.5)"><circle r="2" fill="#008"/><circle r="1.75" fill="#fff"/><path fill="#008" d="M-1.75 0a1.75 1.75 0 1 0 3.5 0a.175.175 0 1 1-3.5 0m.35 0a1.4 1.4 0 1 1 2.8 0 .14.14 0 1 0-2.8 0m-.175.21a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.925 1.4a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-2.1-1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.575-1.575a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m1.75 1.75a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.4-1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.925-1.4a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m2.1 1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.575 1.575a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m-1.75-1.75a.175.175 0 1 1-.35 0 .175.175 0 0 1 .35 0m1.4 1.925a.175.175 0 1 1 .35 0 .175.175 0 0 1-.35 0"/></g></svg>
+                          <span className="text-sm font-medium text-muted-foreground">{countryCode}</span>
+                      </div>
+                      <Input
+                          type="tel"
+                          value={mobileNumber}
+                          onChange={(e) => setMobileNumber(e.target.value)}
+                          placeholder="Mobile number"
+                          required
+                          disabled={loading}
+                          className="flex-1"
+                      />
+                  </div>
+              ) : (
+                  <>
                      <div className="relative">
-                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
-                            type="password"
-                            value={pin}
-                            onChange={(e) => setPin(e.target.value)}
-                            placeholder="Enter 4-digit PIN"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email Address"
                             className="pl-10"
-                            maxLength={4}
                             required
                             disabled={loading}
                         />
                     </div>
-                    </>
-                )}
+                     <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Password"
+                            className="pl-10"
+                            required
+                            disabled={loading}
+                        />
+                    </div>
+                  </>
+              )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? 'Verifying...' : (loginMethod === 'otp' ? 'Send OTP' : 'Verify & Sign In')}
+                {loading ? 'Verifying...' : (loginMethod === 'otp' ? 'Send OTP' : 'Sign In')}
               </Button>
             </form>
             </>
@@ -233,7 +232,7 @@ export default function LoginPage() {
                 {loading ? 'Verifying...' : 'Verify OTP & Sign In'}
               </Button>
               <Button variant="link" onClick={() => { setOtpSent(false); setConfirmationResult(null); }} className="w-full">
-                Back to phone number input
+                Back to Login
               </Button>
             </form>
           )}

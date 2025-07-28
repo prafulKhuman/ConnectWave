@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Mail, Smartphone, KeyRound, User, Lock, Loader2 } from 'lucide-react';
-import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification as sendVerificationEmailHelper, hashValue } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, addUserToFirestore, sendEmailVerification as sendVerificationEmailHelper } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 import type { Contact } from '@/lib/data';
 
@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [pin, setPin] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -26,29 +26,25 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
 
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-        toast({ variant: 'destructive', title: 'Invalid PIN', description: 'PIN must be exactly 4 digits.' });
+    if (password.length < 6) {
+        toast({ variant: 'destructive', title: 'Invalid Password', description: 'Password must be at least 6 characters long.' });
         setLoading(false);
         return;
     }
     
     try {
-      // Step 1: Create user in Firebase Auth using their PIN as the password.
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pin);
+      // Step 1: Create user in Firebase Auth with email and password.
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
       // Step 2: Send verification email
       await sendVerificationEmailHelper(firebaseUser);
-
-      // Step 3: Hash the PIN for storage
-      const hashedPin = await hashValue(pin);
       
-      // Step 4: Add user to Firestore database
-      const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen'| 'id'> = {
+      // Step 3: Add user to Firestore database without any sensitive info
+      const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen'| 'id' | 'pin'> = {
         name,
         email,
         mobileNumber,
-        pin: hashedPin,
       };
       await addUserToFirestore(firebaseUser.uid, newUser);
 
@@ -63,7 +59,7 @@ export default function RegisterPage() {
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Please enter a valid email address.';
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'The PIN is too weak. Please use a stronger one.';
+        errorMessage = 'The password is too weak. Please use a stronger one.';
       }
       toast({ variant: 'destructive', title: 'Error', description: errorMessage });
     } finally {
@@ -120,14 +116,13 @@ export default function RegisterPage() {
                 />
               </div>
               <div className="relative">
-                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="password"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="Create a 4-digit PIN"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a Password (min. 6 characters)"
                   className="pl-10"
-                  maxLength={4}
                   required
                   disabled={loading}
                 />
