@@ -193,10 +193,13 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
     return onSnapshot(q, (querySnapshot) => {
         const messages = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            const sender = participants.find(p => p.id === data.senderId);
+            let sender = participants.find(p => p.id === data.senderId);
+            if (!sender) {
+                sender = { id: data.senderId, name: "Unknown User", avatar: '' } as Contact;
+            }
             return {
                 id: doc.id,
-                sender: sender!,
+                sender: sender,
                 content: data.content,
                 timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
             } as Message;
