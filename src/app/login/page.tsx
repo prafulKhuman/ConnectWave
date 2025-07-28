@@ -18,8 +18,6 @@ export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [pin, setPin] = useState('');
   const [otp, setOtp] = useState('');
-  const [password, setPassword] = useState(''); // New state for password in PIN flow
-  const [userForPinLogin, setUserForPinLogin] = useState(null); // To store user data after PIN verification
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -99,8 +97,7 @@ export default function LoginPage() {
             return;
         }
 
-        // At this point, PIN is valid. Now, sign in with email and the main password.
-        const userCredential = await signInWithEmailAndPassword(auth, user.email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, user.email, pin);
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
@@ -115,7 +112,7 @@ export default function LoginPage() {
         console.error("PIN Login Error:", error);
         let errorMessage = 'An error occurred. Please check your credentials or try another login method.';
         if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-password') {
-             errorMessage = 'Invalid password. Please try again.';
+             errorMessage = 'Invalid PIN. Please try again.';
         }
         toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
     } finally {
@@ -205,18 +202,6 @@ export default function LoginPage() {
                             placeholder="Enter 4-digit PIN"
                             className="pl-10"
                             maxLength={4}
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter Password"
-                            className="pl-10"
                             required
                             disabled={loading}
                         />
