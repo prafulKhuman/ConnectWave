@@ -18,6 +18,8 @@ export default function LoginPage() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [pin, setPin] = useState('');
   const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState(''); // New state for password in PIN flow
+  const [userForPinLogin, setUserForPinLogin] = useState(null); // To store user data after PIN verification
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,9 +99,8 @@ export default function LoginPage() {
             return;
         }
 
-        // At this point, PIN is valid. Now, sign in with email and the PIN as the password.
-        // This is secure because Firebase Auth handles the password verification.
-        const userCredential = await signInWithEmailAndPassword(auth, user.email, pin);
+        // At this point, PIN is valid. Now, sign in with email and the main password.
+        const userCredential = await signInWithEmailAndPassword(auth, user.email, password);
         
         if (!userCredential.user.emailVerified) {
             await signOut(auth);
@@ -110,9 +111,13 @@ export default function LoginPage() {
             toast({ title: 'Success', description: 'You are now logged in.' });
             router.push('/');
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("PIN Login Error:", error);
-        toast({ variant: 'destructive', title: 'Login Failed', description: 'An error occurred. Please check your credentials or try another login method.' });
+        let errorMessage = 'An error occurred. Please check your credentials or try another login method.';
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-password') {
+             errorMessage = 'Invalid password. Please try again.';
+        }
+        toast({ variant: 'destructive', title: 'Login Failed', description: errorMessage });
     } finally {
         setLoading(false);
     }
@@ -190,7 +195,8 @@ export default function LoginPage() {
                     />
                 </div>
                 {loginMethod === 'pin' && (
-                    <div className="relative">
+                    <>
+                     <div className="relative">
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                             type="password"
@@ -203,10 +209,23 @@ export default function LoginPage() {
                             disabled={loading}
                         />
                     </div>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Enter Password"
+                            className="pl-10"
+                            required
+                            disabled={loading}
+                        />
+                    </div>
+                    </>
                 )}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {loading ? 'Verifying...' : (loginMethod === 'otp' ? 'Send OTP' : 'Verify PIN')}
+                {loading ? 'Verifying...' : (loginMethod === 'otp' ? 'Send OTP' : 'Verify & Sign In')}
               </Button>
             </form>
             </>

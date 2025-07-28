@@ -7,7 +7,7 @@ export type Contact = {
   pin: string;
   online?: boolean;
   lastSeen?: Date; // Using Date object for comparisons
-  mobileNumber?: string;
+  mobileNumber: string;
   password?: string; // Storing hashed password for "Forgot PIN" flow
 };
 

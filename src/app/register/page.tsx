@@ -34,9 +34,8 @@ export default function RegisterPage() {
     }
     
     try {
-      // Step 1: Create user in Firebase Auth.
-      // For the PIN login flow to work, we set the user's password to their PIN.
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pin);
+      // Step 1: Create user in Firebase Auth using their main password.
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
       // Step 2: Send verification email
@@ -45,7 +44,6 @@ export default function RegisterPage() {
       // Step 3: Hash the PIN and the main password for storage
       const hashedPin = await hashValue(pin);
       const hashedPassword = await hashValue(password);
-
 
       // Step 4: Add user to Firestore database
       const newUser: Omit<Contact, 'avatar' | 'online' | 'lastSeen'| 'id'> = {
