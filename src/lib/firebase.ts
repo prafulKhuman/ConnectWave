@@ -18,7 +18,8 @@ import {
     deleteDoc,
     writeBatch,
     Timestamp,
-    limit
+    limit,
+    documentId
 } from "firebase/firestore";
 import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -161,7 +162,8 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
         const participantsMap = new Map<string, Contact>();
         
         for (const chunk of participantChunks) {
-            const usersQuery = query(collection(db, "users"), where("id", "in", chunk));
+            if (chunk.length === 0) continue;
+            const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
             const usersSnapshot = await getDocs(usersQuery);
             usersSnapshot.forEach(userDoc => {
                  const data = userDoc.data();
@@ -443,7 +445,7 @@ const getContacts = (userId: string, callback: (contacts: Contact[]) => void) =>
             return;
         }
 
-        const usersQuery = query(collection(db, "users"), where("id", "in", contactIds));
+        const usersQuery = query(collection(db, "users"), where(documentId(), "in", contactIds));
         
         const usersSnapshot = await getDocs(usersQuery);
         const contacts = usersSnapshot.docs.map(doc => {
