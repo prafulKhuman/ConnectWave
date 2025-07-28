@@ -5,6 +5,9 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'ConnectWave',
   description: 'A modern chat application inspired by WhatsApp.',
+  icons: {
+    icon: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
