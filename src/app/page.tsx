@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, getParticipantsWithRealtimeStatus } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
@@ -17,6 +17,7 @@ export default function Home() {
   const [selectedChat, setSelectedChat] = React.useState<Chat | null>(null);
   const [user, setUser] = React.useState<User | null>(null);
   const [currentUser, setCurrentUser] = React.useState<Contact | null>(null);
+  const [participants, setParticipants] = React.useState<{ [key: string]: Contact }>({});
   const [loading, setLoading] = React.useState(true);
   const router = useRouter();
 
@@ -32,7 +33,19 @@ export default function Home() {
         
         if (userProfile) {
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
-            setChats(newChats);
+            
+            const allParticipantIds = Array.from(new Set(newChats.flatMap(c => c.participantIds)));
+            getParticipantsWithRealtimeStatus(allParticipantIds, (updatedParticipants) => {
+              setParticipants(prev => ({ ...prev, ...updatedParticipants }));
+            });
+
+            const updatedChats = newChats.map(chat => ({
+              ...chat,
+              participants: chat.participantIds.map(id => participants[id]).filter(Boolean) as Contact[]
+            }));
+            
+            setChats(updatedChats);
+
             if (loading) {
               setLoading(false);
             }
@@ -63,6 +76,24 @@ export default function Home() {
         unsubscribeAuth();
     };
   }, [router]);
+
+
+  React.useEffect(() => {
+    const updatedChats = chats.map(chat => ({
+        ...chat,
+        participants: chat.participantIds.map(id => participants[id]).filter(Boolean) as Contact[]
+    }));
+    setChats(updatedChats);
+
+    if (selectedChat) {
+        const updatedSelectedChat = updatedChats.find(c => c.id === selectedChat.id);
+        if (updatedSelectedChat) {
+            setSelectedChat(updatedSelectedChat);
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants]);
+
 
   if (loading || !currentUser) {
     return (
