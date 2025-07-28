@@ -273,8 +273,10 @@ const updateUserPresence = async (userId: string, online: boolean) => {
     if (!userId) return;
     const userDocRef = doc(db, "users", userId);
     const presenceData: { online: boolean; lastSeen?: any } = { online };
-    if (!online) {
-      presenceData.lastSeen = serverTimestamp();
+    if (online) {
+      presenceData.lastSeen = null; // Clear lastSeen when user is online
+    } else {
+      presenceData.lastSeen = serverTimestamp(); // Set lastSeen when user is offline
     }
     await updateDoc(userDocRef, presenceData);
 };
