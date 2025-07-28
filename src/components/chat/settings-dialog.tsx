@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue } from '@/lib/firebase';
+import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
 
 type SettingsDialogProps = {
   currentUser: ContactType;
@@ -30,8 +30,11 @@ type SettingsDialogProps = {
 export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(currentUser.name);
-  const [pin, setPin] = useState('');
+  
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
   const [quickChatEmail, setQuickChatEmail] = useState('');
@@ -75,21 +78,36 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   };
   
   const handlePinChange = async () => {
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-        toast({ variant: 'destructive', title: 'Invalid PIN', description: 'PIN must be exactly 4 digits.' });
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
+        toast({ variant: 'destructive', title: 'Invalid PIN', description: 'New PIN must be exactly 4 digits.' });
         return;
     }
-    if (pin !== confirmPin) {
-      toast({ variant: 'destructive', title: 'PINs do not match', description: 'Please ensure both PINs are the same.' });
+    if (newPin !== confirmPin) {
+      toast({ variant: 'destructive', title: 'PINs do not match', description: 'Please ensure the new PINs are the same.' });
       return;
     }
+    
     setPinLoading(true);
+
+    // If user already has a PIN, verify the old one first.
+    if (currentUser.pin) {
+        const isOldPinValid = await compareValue(oldPin, currentUser.pin);
+        if (!isOldPinValid) {
+            toast({ variant: 'destructive', title: 'Incorrect Old PIN', description: 'The old PIN you entered is incorrect.' });
+            setPinLoading(false);
+            return;
+        }
+    }
+
     try {
-      const hashedPin = await hashValue(pin);
+      const hashedPin = await hashValue(newPin);
       await updateUserProfile(currentUser.id, { pin: hashedPin });
-      toast({ title: "PIN Changed", description: "Your App Lock PIN has been updated." });
-      setPin('');
+      toast({ title: "PIN Changed", description: "Your App Lock PIN has been updated successfully." });
+      setOldPin('');
+      setNewPin('');
       setConfirmPin('');
+      // Manually refetch user data or update local state if needed. A page reload might be simplest.
+      window.location.reload();
     } catch (error) {
         toast({ variant: 'destructive', title: "Error", description: "Failed to change PIN." });
     } finally {
@@ -176,10 +194,18 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           </TabsContent>
           
           <TabsContent value="security" className="py-4 space-y-4">
-             <h3 className="font-semibold">Change App Lock PIN</h3>
+             <h3 className="font-semibold">{currentUser.pin ? 'Update App Lock PIN' : 'Set App Lock PIN'}</h3>
+             
+             {currentUser.pin && (
+                <div className="space-y-2">
+                    <Label htmlFor="old-pin">Old PIN</Label>
+                    <Input id="old-pin" type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} maxLength={4} disabled={pinLoading} />
+                </div>
+             )}
+
              <div className="space-y-2">
               <Label htmlFor="pin">New 4-Digit PIN</Label>
-              <Input id="pin" type="password" value={pin} onChange={(e) => setPin(e.target.value)} maxLength={4} disabled={pinLoading} />
+              <Input id="pin" type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} maxLength={4} disabled={pinLoading} />
             </div>
              <div className="space-y-2">
               <Label htmlFor="confirm-pin">Confirm New PIN</Label>
@@ -187,7 +213,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             </div>
             <Button onClick={handlePinChange} className="w-full" disabled={pinLoading}>
                 {pinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {pinLoading ? "Setting..." : "Set New PIN"}
+                {pinLoading ? "Saving..." : (currentUser.pin ? 'Update PIN' : 'Set New PIN')}
             </Button>
           </TabsContent>
           
@@ -232,3 +258,5 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     </Dialog>
   );
 }
+
+    
