@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification as firebaseSendEmailVerification, sendPasswordResetEmail as firebaseSendPasswordResetEmail } from "firebase/auth";
+import { getAuth, RecaptchaVerifier, setPersistence, browserLocalPersistence, onAuthStateChanged, User, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification as firebaseSendEmailVerification, sendPasswordResetEmail as firebaseSendPasswordResetEmail, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { 
     getFirestore, 
     collection, 
@@ -77,6 +77,12 @@ const sendEmailVerification = async (user: User) => {
 
 const sendPasswordResetEmail = async (email: string) => {
     return await firebaseSendPasswordResetEmail(auth, email);
+}
+
+const reauthenticateUser = async (user: User, password_: string) => {
+    if(!user.email) throw new Error("User has no email");
+    const credential = EmailAuthProvider.credential(user.email, password_);
+    return await reauthenticateWithCredential(user, credential);
 }
 
 // Hashing Functions
@@ -503,7 +509,8 @@ export {
     getParticipantsWithRealtimeStatus,
     uploadImageForChat,
     hashValue,
-    compareValue
+    compareValue,
+    reauthenticateUser
 };
 
     
