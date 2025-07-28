@@ -31,7 +31,8 @@ export default function Home() {
         if (userProfile) {
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
             setChats(newChats);
-             if (loading) {
+             // Only stop loading when chats are loaded
+            if (loading) {
               setLoading(false);
             }
             if (!selectedChat && newChats.length > 0) {
@@ -47,24 +48,25 @@ export default function Home() {
             unsubscribeChats();
           }
         } else {
+            // User exists in Auth but not in Firestore, treat as an error/logged-out state
             setLoading(false);
             router.push('/login');
         }
 
       } else {
+        // No user is signed in.
         router.push('/login');
         setLoading(false);
       }
     });
 
     return () => {
-        if (auth.currentUser) {
-            // This will be handled by onDisconnect, but as a fallback
-            signOut(auth);
-        }
+        // No need to sign out here, onDisconnect handles it.
         unsubscribeAuth();
     };
-  }, [router, selectedChat, loading]);
+  // The dependency array is crucial. We only re-run this when the router object changes.
+  // We avoid including state that changes within the effect (like selectedChat or loading) to prevent loops.
+  }, [router]);
 
   if (loading || !currentUser) {
     return (
@@ -80,9 +82,10 @@ export default function Home() {
     );
   }
   
+  // This check is now safe because `loading` is false
   if (!user) {
     router.push('/login');
-    return null;
+    return null; // Render nothing while redirecting
   }
 
   return (
