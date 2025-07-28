@@ -26,16 +26,14 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
 import { formatDistanceToNow } from 'date-fns';
 
-
 const firebaseConfig = {
-  projectId: "connectwave-6mfth",
-  appId: "1:833165766531:web:2435082a79fd6f098c50b6",
-  storageBucket: "connectwave-6mfth.appspot.com",
-  apiKey: "AIzaSyBPcxs52oOTHm42VGbagazgQUKgVCzKV08",
-  authDomain: "connectwave-6mfth.firebaseapp.com",
-  measurementId: "",
-  messagingSenderId: "833165766531",
-  databaseURL: "https://connectwave-6mfth-default-rtdb.firebaseio.com",
+    apiKey: "AIzaSyBuDZPKJ2ZF88i8sf2YQsQJb9dzvT45X2w",
+    authDomain: "wavync.firebaseapp.com",
+    databaseURL: "https://wavync-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "wavync",
+    storageBucket: "wavync.firebasestorage.app",
+    messagingSenderId: "1065315620505",
+    appId: "1:1065315620505:web:38a9831efab588a51c4a08"
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
