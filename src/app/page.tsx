@@ -43,11 +43,13 @@ export default function Home() {
         setUser(user);
         const userProfile = await getCurrentUser(user.uid);
         setCurrentUser(userProfile);
-        setLoading(false);
         
         if (userProfile) {
           const unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
             setChats(newChats);
+             if (loading) {
+              setLoading(false);
+            }
             if (!selectedChat && newChats.length > 0) {
               setSelectedChat(newChats[0]);
             } else if (selectedChat) {
@@ -58,6 +60,8 @@ export default function Home() {
             }
           });
           return () => unsubscribeChats();
+        } else {
+            setLoading(false);
         }
 
       } else {
@@ -67,7 +71,7 @@ export default function Home() {
     });
 
     return () => unsubscribeAuth();
-  }, [router, selectedChat]);
+  }, [router, selectedChat, loading]);
 
   if (loading || !currentUser) {
     return (
@@ -91,7 +95,7 @@ export default function Home() {
     <main className="h-screen w-full bg-background">
       <SidebarProvider>
         <div className="flex h-full w-full">
-          <Sidebar side="left" className="h-screen w-full max-w-sm border-r" collapsible="none">
+          <Sidebar side="left" className="h-full w-full max-w-sm border-r" collapsible="none">
             <ChatList
               chats={chats}
               selectedChat={selectedChat}
@@ -107,3 +111,4 @@ export default function Home() {
     </main>
   );
 }
+
