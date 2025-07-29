@@ -6,11 +6,15 @@ import { cn } from '@/lib/utils';
 import type { Contact } from '@/lib/data';
 
 type UserAvatarProps = {
-  user: Partial<Contact>;
+  user: Partial<Contact> | null | undefined;
   className?: string;
 };
 
 export function UserAvatar({ user, className }: UserAvatarProps) {
+  if (!user) {
+    return null; // or a placeholder avatar
+  }
+
   const fallbackName = user.name || 'User';
 
   return (
