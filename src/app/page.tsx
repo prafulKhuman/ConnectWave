@@ -63,6 +63,7 @@ export default function Home() {
             setLoading(false); // Stop main loader, PIN modal will show
           } else {
             // No PIN, load chats directly
+            setLoading(true); // Show loader while fetching chats
             unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
               setChats(newChats);
               if (newChats.length > 0 && !selectedChat) {
@@ -87,7 +88,7 @@ export default function Home() {
         unsubscribeChats();
       }
     };
-  }, [router, selectedChat]); // Removed selectedChat from dependency array to fix re-render loop
+  }, [router]);
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,12 +105,12 @@ export default function Home() {
       setLoading(true);
       const unsubscribeChats = getChatsForUser(currentUser.id, (newChats) => {
         setChats(newChats);
-        if (newChats.length > 0) {
+        if (newChats.length > 0 && !selectedChat) {
             setSelectedChat(newChats[0]);
         }
         setLoading(false);
       });
-      // We don't have a simple way to return this unsubscribe, but it will be detached when user logs out.
+      // This listener will be detached when user logs out and auth state changes.
     } else {
       toast({ variant: 'destructive', title: "Invalid PIN", description: "The PIN you entered is incorrect." });
     }
@@ -140,7 +141,15 @@ export default function Home() {
         toast({ title: "PIN Reset Successful", description: "Your App Lock PIN has been changed." });
         
         setIsForgotPinModalOpen(false);
-        handlePinSubmit(new Event('submit')); // Resubmit with new pin to unlock
+        // After resetting, we can treat it as a successful PIN submission to unlock the app
+        setPin(newPin); // Set the new pin
+        setIsPinModalOpen(true); // Go back to the PIN screen
+        // Manually trigger the submit logic for the main PIN screen
+        const mockEvent = { preventDefault: () => {} } as React.FormEvent;
+        // This is a bit of a trick, but it's better than duplicating the chat loading logic
+        // We'll need a small delay for state to update
+        setTimeout(() => handlePinSubmit(mockEvent), 100);
+
 
     } catch (error: any) {
         let errorMessage = 'Failed to reset PIN. Please try again.';
@@ -158,7 +167,7 @@ export default function Home() {
 
   const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
 
-  if (loading) {
+  if (loading && !isAppLocked) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <div className="flex flex-col items-center gap-4">
@@ -258,7 +267,7 @@ export default function Home() {
       <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
             <div className="flex h-full w-full">
-            <Sidebar side="left" className="h-full w-full max-w-sm border-r" collapsible="none">
+            <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
                 <ChatList
                 chats={chats}
                 selectedChat={selectedChat}
