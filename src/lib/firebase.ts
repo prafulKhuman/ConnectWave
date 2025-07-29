@@ -146,20 +146,20 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
 
-    let chats: Chat[] = [];
-    let participantsMap = new Map<string, Contact>();
-    const messageListeners: (() => void)[] = [];
-
     const unsubscribe = onSnapshot(chatsQuery, async (chatsSnapshot) => {
-        
-        const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
-        if (allParticipantIds.length > 0) {
+        const participantIds = new Set<string>();
+        chatsSnapshot.docs.forEach(doc => {
+            doc.data().participantIds.forEach((id: string) => participantIds.add(id));
+        });
+
+        const participantsMap = new Map<string, Contact>();
+        if (participantIds.size > 0) {
             const participantChunks: string[][] = [];
-            for (let i = 0; i < allParticipantIds.length; i += 30) {
-                participantChunks.push(allParticipantIds.slice(i, i + 30));
+             for (let i = 0; i < Array.from(participantIds).length; i += 30) {
+                participantChunks.push(Array.from(participantIds).slice(i, i + 30));
             }
             await Promise.all(participantChunks.map(async chunk => {
-                if (chunk.length === 0) return;
+                 if (chunk.length === 0) return;
                 const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
                 const usersSnapshot = await getDocs(usersQuery);
                 usersSnapshot.forEach(userDoc => {
@@ -170,11 +170,9 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             }));
         }
 
-        chats = chatsSnapshot.docs.map(chatDoc => {
+        const chats: Chat[] = chatsSnapshot.docs.map(chatDoc => {
             const chatData = chatDoc.data();
-            const participants = chatData.participantIds
-                .map((id: string) => participantsMap.get(id))
-                .filter(Boolean) as Contact[];
+            const participants = chatData.participantIds.map((id: string) => participantsMap.get(id)).filter(Boolean) as Contact[];
             return {
                 id: chatDoc.id,
                 ...chatData,
@@ -184,76 +182,75 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             } as Chat;
         });
 
-        // Clean up old message listeners
-        messageListeners.forEach(unsub => unsub());
-        messageListeners.length = 0;
+        // Set up listeners for last message and unread count for each chat
+        const chatPromises = chats.map(chat => {
+            return new Promise<Chat>((resolve) => {
+                const messagesQuery = query(
+                    collection(db, "chats", chat.id, "messages"),
+                    orderBy("timestamp", "desc")
+                );
 
-        if (chats.length === 0) {
-            callback([]);
-            return;
-        }
+                const messageUnsubscribe = onSnapshot(messagesQuery, (messagesSnapshot) => {
+                    const allMessages = messagesSnapshot.docs;
+                    const lastMessageDoc = allMessages[0];
+                    let unreadCount = 0;
 
-        chats.forEach((chat) => {
-            const messagesQuery = query(
-                collection(db, "chats", chat.id, "messages"),
-                orderBy("timestamp", "desc")
-            );
+                    messagesSnapshot.docs.forEach(msgDoc => {
+                        const msgData = msgDoc.data();
+                        if (msgData.senderId !== userId && msgData.status !== 'read') {
+                            unreadCount++;
+                        }
+                    });
 
-            const messageUnsubscribe = onSnapshot(messagesQuery, (messagesSnapshot) => {
-                const allMessages = messagesSnapshot.docs;
-                const lastMessageDoc = allMessages[0];
-
-                let unreadCount = 0;
-                messagesSnapshot.docs.forEach(msgDoc => {
-                    const msgData = msgDoc.data();
-                    if (msgData.senderId !== userId && msgData.status !== 'read') {
-                        unreadCount++;
+                    // Update 'sent' messages to 'delivered' if recipient is online
+                    const otherParticipant = chat.participants.find(p => p.id !== userId);
+                    if (otherParticipant?.online) {
+                        const messagesToMarkDelivered = allMessages
+                            .filter(doc => doc.data().senderId !== userId && doc.data().status === 'sent')
+                            .map(doc => doc.id);
+                        if (messagesToMarkDelivered.length > 0) {
+                            updateMessagesStatus(chat.id, messagesToMarkDelivered, 'delivered');
+                        }
                     }
+
+                    if (lastMessageDoc) {
+                        const msgData = lastMessageDoc.data();
+                        let contentPreview = msgData.content;
+                        switch (msgData.type) {
+                            case 'image': contentPreview = `📷 Image`; break;
+                            case 'video': contentPreview = `📹 Video`; break;
+                            case 'audio': contentPreview = `🎵 Audio`; break;
+                            case 'file': contentPreview = `📄 File`; break;
+                        }
+                        const timestamp = msgData.timestamp?.toDate() || new Date();
+                        chat.messages = [{
+                            id: lastMessageDoc.id,
+                            content: contentPreview,
+                            timestamp: timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+                            timestamp_raw: timestamp.getTime(),
+                            sender: participantsMap.get(msgData.senderId)!,
+                            type: msgData.type || 'text',
+                            status: msgData.status || 'sent',
+                            edited: msgData.edited || false,
+                            fileName: msgData.fileName
+                        }];
+                    }
+                    chat.unreadCount = unreadCount;
+                    
+                    // Not ideal to resolve multiple times, but onSnapshot requires a live connection.
+                    // This will be handled by the main callback logic.
+                    const updatedChats = chats.map(c => c.id === chat.id ? {...chat} : c);
+                    callback(updatedChats);
                 });
-                
-                let lastMessage: Message | undefined = undefined;
-                if (lastMessageDoc) {
-                    const msgData = lastMessageDoc.data();
-                    let contentPreview = msgData.content;
-                     switch (msgData.type) {
-                        case 'image': contentPreview = `📷 Image`; break;
-                        case 'video': contentPreview = `📹 Video`; break;
-                        case 'audio': contentPreview = `🎵 Audio`; break;
-                        case 'file': contentPreview = `📄 File`; break;
-                    }
-                    const timestamp = msgData.timestamp?.toDate() || new Date();
-                    lastMessage = {
-                        id: lastMessageDoc.id,
-                        content: contentPreview,
-                        timestamp: timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
-                        timestamp_raw: timestamp.getTime(),
-                        sender: participantsMap.get(msgData.senderId)!,
-                        type: msgData.type || 'text',
-                        status: msgData.status || 'sent',
-                        edited: msgData.edited || false,
-                        fileName: msgData.fileName
-                    };
-                }
-
-                // Update the specific chat in the array
-                const chatIndex = chats.findIndex(c => c.id === chat.id);
-                if (chatIndex !== -1) {
-                    chats[chatIndex].messages = lastMessage ? [lastMessage] : [];
-                    chats[chatIndex].unreadCount = unreadCount;
-                }
-                
-                callback([...chats]);
+                // We don't resolve the promise here because the listener is ongoing.
+                // Instead, we rely on the callback inside the listener.
             });
-            messageListeners.push(messageUnsubscribe);
         });
-
-        callback([...chats]);
+        
+        callback(chats); // Initial callback with chat structure
     });
 
-    return () => {
-        unsubscribe();
-        messageListeners.forEach(unsub => unsub());
-    };
+    return unsubscribe;
 };
 
 const getMessagesForChat = (chatId: string, callback: (messages: Message[], participantsMap: Map<string, Contact>) => void) => {
