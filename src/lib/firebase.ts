@@ -184,9 +184,15 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             .map((id: string) => participantsMap.get(id))
             .filter(Boolean) as Contact[];
 
+        // Get last message
         const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
         const messagesSnapshot = await getDocs(messagesQuery);
         
+        // Get unread count
+        const unreadQuery = query(collection(db, "chats", chatDoc.id, "messages"), where("status", "!=", "read"), where("senderId", "!=", userId));
+        const unreadSnapshot = await getDocs(unreadQuery);
+        const unreadCount = unreadSnapshot.size;
+
         const messages = messagesSnapshot.docs.map(msgDoc => {
             const msgData = msgDoc.data();
             const sender = participantsMap.get(msgData.senderId);
@@ -226,6 +232,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             ...chatData,
             participants,
             messages,
+            unreadCount,
         } as Chat;
     });
     
@@ -614,5 +621,3 @@ export {
     setUserTypingStatus,
     onTypingStatusChange
 };
-
-    

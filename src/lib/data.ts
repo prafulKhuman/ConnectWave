@@ -34,4 +34,5 @@ export type Chat = {
     isBlocked: boolean;
     by: string; // userId of who initiated the block
   };
+  unreadCount?: number;
 };

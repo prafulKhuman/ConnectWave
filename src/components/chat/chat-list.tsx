@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { SettingsDialog } from './settings-dialog';
+import { Badge } from '@/components/ui/badge';
 
 type ChatListProps = {
   chats: Chat[];
@@ -225,6 +226,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
               const details = getChatDetails(chat);
               const lastMessage = chat.messages[0];
               const isPinned = chat.pinnedBy?.includes(currentUser.id) || false;
+              const hasUnread = (chat.unreadCount || 0) > 0;
 
               return (
                 <li key={chat.id} className="relative group">
@@ -232,7 +234,8 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
                     onClick={() => setSelectedChat(chat)}
                     className={cn(
                       'flex w-full items-center gap-4 rounded-lg p-3 text-left transition-colors hover:bg-muted',
-                      selectedChat?.id === chat.id && 'bg-primary/20 hover:bg-primary/20'
+                      selectedChat?.id === chat.id && 'bg-primary/20 hover:bg-primary/20',
+                      hasUnread && selectedChat?.id !== chat.id && 'bg-accent/50 hover:bg-accent/60'
                     )}
                   >
                     <UserAvatar
@@ -246,16 +249,21 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
                     />
                     <div className="flex-1 overflow-hidden">
                       <div className="flex items-baseline justify-between">
-                        <p className="truncate font-semibold">{details.name}</p>
+                        <p className={cn("truncate font-semibold", hasUnread && "font-bold")}>{details.name}</p>
                         <time className="text-xs text-muted-foreground">
                           {lastMessage?.timestamp}
                         </time>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isPinned && <Pin className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
-                        <p className="truncate text-sm text-muted-foreground">
-                            {lastMessage?.content || 'No messages yet.'}
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            {isPinned && <Pin className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                            <p className="truncate text-sm text-muted-foreground">
+                                {lastMessage?.content || 'No messages yet.'}
+                            </p>
+                        </div>
+                        {hasUnread && (
+                            <Badge className="h-5 w-5 justify-center rounded-full p-0">{chat.unreadCount}</Badge>
+                        )}
                       </div>
                     </div>
                   </button>
