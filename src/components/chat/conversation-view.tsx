@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, ChevronDown } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -87,8 +87,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const [otherParticipant, setOtherParticipant] = React.useState<Contact | undefined>(undefined);
   const [typingUsers, setTypingUsers] = React.useState<string[]>([]);
   const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  
-  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -106,19 +104,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       return () => unsubscribe();
     }
   }, [selectedChat, currentUser.id]);
-  
-  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
-    const isScrolledUp = scrollHeight - clientHeight > 200 && scrollTop < scrollHeight - clientHeight - 200;
-    setShowScrollToBottom(isScrolledUp && !isAtBottom);
-  };
-  
-  const scrollToBottom = () => {
-    if (scrollViewportRef.current) {
-      scrollViewportRef.current.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  };
 
 
   React.useEffect(() => {
@@ -259,10 +244,9 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0] && selectedChat) {
-        const file = e.target.files[0];
-
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0] && selectedChat) {
+        const file = event.target.files[0];
         if (file.size > MAX_FILE_SIZE) {
             toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
             return;
@@ -290,6 +274,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         }
     }
   };
+  
 
   const handleClearChat = async () => {
     if (!selectedChat) return;
@@ -465,80 +450,71 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         </div>
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <ScrollArea className="flex-1" viewportRef={scrollViewportRef} onScroll={handleScroll}>
-          <div className="p-4 space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  'flex items-end gap-2 group',
-                  message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
-                )}
-              >
+       <div className="flex-1 flex flex-col overflow-hidden">
+         <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+            <div className="p-4 space-y-4">
+              {messages.map((message) => (
                 <div
+                  key={message.id}
                   className={cn(
-                    'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
-                    message.sender?.id === currentUser.id
-                      ? 'bg-primary/80 text-primary-foreground'
-                      : 'bg-card'
+                    'flex items-end gap-2 group',
+                    message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
                   )}
                 >
-                  {renderMessageContent(message)}
-                  <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
-                      {message.edited && <span>Edited</span>}
-                      <time>{message.timestamp}</time>
-                      {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
-                  </div>
+                  <div
+                    className={cn(
+                      'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
+                      message.sender?.id === currentUser.id
+                        ? 'bg-primary/80 text-primary-foreground'
+                        : 'bg-card'
+                    )}
+                  >
+                    {renderMessageContent(message)}
+                    <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
+                        {message.edited && <span>Edited</span>}
+                        <time>{message.timestamp}</time>
+                        {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
+                    </div>
 
-                  {message.sender?.id === currentUser.id && (
-                       <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                  <DropdownMenuItem onClick={() => handleEditMessage(message)}>
-                                      <PenSquare className="mr-2 h-4 w-4" /> Edit
-                                  </DropdownMenuItem>
-                                  <AlertDialog open={dialogState.deleteMessageId === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessageId: open ? message.id : undefined}))}>
-                                      <AlertDialogTrigger asChild>
-                                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                          </DropdownMenuItem>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                          <AlertDialogHeader><AlertDialogTitle>Delete this message?</AlertDialogTitle></AlertDialogHeader>
-                                          <AlertDialogDescription>This will permanently delete this message for everyone. This action cannot be undone.</AlertDialogDescription>
-                                          <AlertDialogFooter>
-                                              <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction onClick={() => handleDeleteMessage(message.id)} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                                  {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
-                                              </AlertDialogAction>
-                                          </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                  </AlertDialog>
-                              </DropdownMenuContent>
-                           </DropdownMenu>
-                       </div>
-                  )}
+                    {message.sender?.id === currentUser.id && (
+                         <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={() => handleEditMessage(message)}>
+                                        <PenSquare className="mr-2 h-4 w-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <AlertDialog open={dialogState.deleteMessageId === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessageId: open ? message.id : undefined}))}>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Delete this message?</AlertDialogTitle></AlertDialogHeader>
+                                            <AlertDialogDescription>This will permanently delete this message for everyone. This action cannot be undone.</AlertDialogDescription>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteMessage(message.id)} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                    {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </DropdownMenuContent>
+                             </DropdownMenu>
+                         </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-        {showScrollToBottom && (
-          <Button
-            size="icon"
-            className="absolute bottom-4 right-4 rounded-full"
-            onClick={scrollToBottom}
-          >
-            <ChevronDown className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
+              ))}
+            </div>
+         </ScrollArea>
+       </div>
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
         {isChatBlocked ? (
