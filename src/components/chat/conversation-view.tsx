@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Camera as CameraIconUI } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Textarea } from '@/components/ui/textarea';
+import { CameraView } from './camera-view';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -77,6 +78,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const [newMessage, setNewMessage] = React.useState('');
   const [isSending, setIsSending] = React.useState(false);
   const [isViewContactOpen, setIsViewContactOpen] = React.useState(false);
+  const [isCameraOpen, setIsCameraOpen] = React.useState(false);
   const [dialogState, setDialogState] = React.useState<{ clearChat?: boolean; blockChat?: boolean, deleteMessageId?: string }>({});
   const [actionLoading, setActionLoading] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -247,35 +249,40 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0] && selectedChat) {
         const file = event.target.files[0];
-        if (file.size > MAX_FILE_SIZE) {
-            toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
-            return;
-        }
-
-        if (!ALLOWED_FILE_TYPES.includes(file.type)) {
-            toast({ variant: 'destructive', title: 'Invalid File Type', description: 'This file type is not supported.' });
-            return;
-        }
-        
-        setIsUploading(true);
-        try {
-            let fileType: Message['type'] = 'file';
-            if (file.type.startsWith('image/')) fileType = 'image';
-            else if (file.type.startsWith('video/')) fileType = 'video';
-            else if (file.type.startsWith('audio/')) fileType = 'audio';
-
-            const downloadURL = await uploadFileForChat(selectedChat.id, file, fileType);
-            await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
-
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
-        } finally {
-            setIsUploading(false);
-        }
+        handleSendFile(file);
     }
   };
-  
 
+  const handleSendFile = async (file: File) => {
+      if (!selectedChat) return;
+
+      if (file.size > MAX_FILE_SIZE) {
+          toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
+          return;
+      }
+      
+      let fileType: Message['type'] = 'file';
+      if (file.type.startsWith('image/')) fileType = 'image';
+      else if (file.type.startsWith('video/')) fileType = 'video';
+      else if (file.type.startsWith('audio/')) fileType = 'audio';
+
+      if (fileType === 'file' && !ALLOWED_FILE_TYPES.includes(file.type)) {
+          toast({ variant: 'destructive', title: 'Invalid File Type', description: 'This file type is not supported.' });
+          return;
+      }
+      
+      setIsUploading(true);
+      try {
+          const downloadURL = await uploadFileForChat(selectedChat.id, file, fileType);
+          await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
+
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
+      } finally {
+          setIsUploading(false);
+      }
+  }
+  
   const handleClearChat = async () => {
     if (!selectedChat) return;
     setActionLoading(true);
@@ -449,71 +456,74 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
           </DropdownMenu>
         </div>
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
+        <CameraView isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSend={handleSendFile} />
       </header>
        <div className="flex-1 flex flex-col overflow-hidden">
-         <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
-            <div className="p-4 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'flex items-end gap-2 group',
-                    message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
-                      message.sender?.id === currentUser.id
-                        ? 'bg-primary/80 text-primary-foreground'
-                        : 'bg-card'
-                    )}
-                  >
-                    {renderMessageContent(message)}
-                    <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
-                        {message.edited && <span>Edited</span>}
-                        <time>{message.timestamp}</time>
-                        {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
-                    </div>
+         <div className="flex-1 overflow-y-auto">
+            <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
+                <div className="p-4 space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        'flex items-end gap-2 group',
+                        message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
+                          message.sender?.id === currentUser.id
+                            ? 'bg-primary/80 text-primary-foreground'
+                            : 'bg-card'
+                        )}
+                      >
+                        {renderMessageContent(message)}
+                        <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
+                            {message.edited && <span>Edited</span>}
+                            <time>{message.timestamp}</time>
+                            {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
+                        </div>
 
-                    {message.sender?.id === currentUser.id && (
-                         <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={() => handleEditMessage(message)}>
-                                        <PenSquare className="mr-2 h-4 w-4" /> Edit
-                                    </DropdownMenuItem>
-                                    <AlertDialog open={dialogState.deleteMessageId === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessageId: open ? message.id : undefined}))}>
-                                        <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                            </DropdownMenuItem>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader><AlertDialogTitle>Delete this message?</AlertDialogTitle></AlertDialogHeader>
-                                            <AlertDialogDescription>This will permanently delete this message for everyone. This action cannot be undone.</AlertDialogDescription>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteMessage(message.id)} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                                    {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                </DropdownMenuContent>
-                             </DropdownMenu>
-                         </div>
-                    )}
-                  </div>
+                        {message.sender?.id === currentUser.id && (
+                             <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuItem onClick={() => handleEditMessage(message)}>
+                                            <PenSquare className="mr-2 h-4 w-4" /> Edit
+                                        </DropdownMenuItem>
+                                        <AlertDialog open={dialogState.deleteMessageId === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessageId: open ? message.id : undefined}))}>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader><AlertDialogTitle>Delete this message?</AlertDialogTitle></AlertDialogHeader>
+                                                <AlertDialogDescription>This will permanently delete this message for everyone. This action cannot be undone.</AlertDialogDescription>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteMessage(message.id)} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                        {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </DropdownMenuContent>
+                                 </DropdownMenu>
+                             </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-         </ScrollArea>
+            </ScrollArea>
+         </div>
        </div>
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
@@ -543,6 +553,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                     </PopoverContent>
                 </Popover>
                 
+                <Button variant="ghost" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isSending || isUploading}>
+                    <CameraIconUI className="h-5 w-5" />
+                </Button>
+
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
                 <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSending || isUploading}>
                    {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
