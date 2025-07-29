@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, ArrowDown } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -87,7 +87,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const [otherParticipant, setOtherParticipant] = React.useState<Contact | undefined>(undefined);
   const [typingUsers, setTypingUsers] = React.useState<string[]>([]);
   const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -107,12 +106,12 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   }, [selectedChat, currentUser.id]);
 
   React.useEffect(() => {
-    if (scrollViewportRef.current && !showScrollToBottom) {
+    if (scrollViewportRef.current) {
       setTimeout(() => {
         scrollViewportRef.current!.scrollTo({ top: scrollViewportRef.current!.scrollHeight, behavior: 'smooth' });
       }, 100);
     }
-  }, [messages, showScrollToBottom]);
+  }, [messages]);
 
   React.useEffect(() => {
      if (!selectedChat || !isTabVisible) return;
@@ -329,27 +328,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     setEditContent('');
   };
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 1;
-    const hasScrolledUp = target.scrollTop < target.scrollHeight - target.clientHeight - 200;
-
-    if (hasScrolledUp) {
-      setShowScrollToBottom(true);
-    } else {
-      setShowScrollToBottom(false);
-    }
-  };
-
-  const scrollToBottom = () => {
-    if (scrollViewportRef.current) {
-      scrollViewportRef.current.scrollTo({
-        top: scrollViewportRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    }
-  };
-
 
   const isChatBlocked = selectedChat?.blocked?.isBlocked;
   const amIBlocked = isChatBlocked && selectedChat?.blocked?.by !== currentUser.id;
@@ -469,7 +447,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
       <div className="flex-1 relative">
-        <ScrollArea className="absolute inset-0" viewportRef={scrollViewportRef} onScroll={handleScroll}>
+        <ScrollArea className="absolute inset-0" viewportRef={scrollViewportRef}>
           <div className="p-4 space-y-4">
             {messages.map((message) => (
               <div
@@ -532,15 +510,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             ))}
           </div>
         </ScrollArea>
-        {showScrollToBottom && (
-          <Button
-            onClick={scrollToBottom}
-            size="icon"
-            className="absolute bottom-4 right-4 z-10 rounded-full h-10 w-10"
-          >
-            <ArrowDown className="h-5 w-5" />
-          </Button>
-        )}
       </div>
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
