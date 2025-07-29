@@ -74,7 +74,7 @@
 
 @layer utilities {
   .chat-background {
-    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'%3E%3Cpath d='M10 0h10v10H10V0zm30 0h10v10H40V0zm50 0h10v10H90V0zm30 0h10v10h-10V0zm50 0h10v10h-10V0zM0 20h10v10H0V20zm20 0h10v10H20V20zm30 0h10v10H50V20zm50 0h10v10h-10V20zm30 0h10v10h-10V20zM0 40h10v10H0V40zm40 0h10v10H40V40zm30 0h10v10H70V40zm50 0h10v10h-10V40zm30 0h10v10h-10V40zM20 60h10v10H20V60zm30 0h10v10H50V60zm50 0h10v10h-10V60zm30 0h10v10h-10V60zM0 80h10v10H0V80zm40 0h10v10H40V80zm30 0h10v10H70V80zm30 0h10v10h-10V80zm50 0h10v10h-10V80zM20 100h10v10H20v-10zm50 0h10v10H70v-10zm30 0h10v10h-10v-10zm30 0h10v10h-10v-10zM0 120h10v10H0v-10zm20 0h10v10H20v-10zm30 0h10v10H50v-10zm50 0h10v10h-10v-10zm30 0h10v10h-10v-10zm30 0h10v10h-10v-10zM40 140h10v10H40v-10zm30 0h10v10H70v-10zm30 0h10v10h-10v-10zm50 0h10v10h-10v-10zM0 160h10v10H0v-10zm20 0h10v10H20v-10zm50 0h10v10H70v-10zm30 0h10v10h-10v-10zm30 0h10v10h-10v-10zM40 180h10v10H40v-10zm50 0h10v10H90v-10zm30 0h10v10h-10v-10zm30 0h10v10h-10v-10z'/%3E%3C/g%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%239C92AC' fill-opacity='0.1' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
     background-color: hsl(var(--background));
   }
 }
