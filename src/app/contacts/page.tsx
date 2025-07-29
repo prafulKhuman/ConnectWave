@@ -123,30 +123,27 @@ export default function ContactsPage() {
 
   if (loading || !currentUser) {
     return (
-        <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex h-screen w-full items-center justify-center bg-background p-4">
             <div className="flex flex-col items-center gap-4">
-                <Skeleton className="h-16 w-16 rounded-full" />
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-[250px]" />
-                    <Skeleton className="h-4 w-[200px]" />
-                </div>
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-muted-foreground">Loading your contacts...</p>
             </div>
         </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-start justify-center bg-background p-4 sm:p-6 md:p-8">
+    <div className="flex min-h-screen items-start justify-center bg-muted/40 p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-4xl space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className='flex items-center gap-3'>
                 <UserPlus className="h-8 w-8 text-primary" />
                 <div>
-                    <h1 className="text-3xl font-bold">Manage Contacts</h1>
-                    <p className="text-muted-foreground">Add, remove, and start chats with your contacts.</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Manage Contacts</h1>
+                    <p className="text-sm sm:text-base text-muted-foreground">Add, remove, and start chats with your contacts.</p>
                 </div>
             </div>
-            <Button variant="outline" onClick={() => router.push('/')}>
+            <Button variant="outline" onClick={() => router.push('/')} className="w-full sm:w-auto">
                 <Home className="mr-2 h-4 w-4" /> Go to Chats
             </Button>
         </header>
@@ -157,21 +154,21 @@ export default function ContactsPage() {
                 <CardDescription>Enter the email address of the user you want to add.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleAddContact} className="flex flex-col sm:flex-row items-center gap-2">
-                    <div className="relative w-full">
+                <form onSubmit={handleAddContact} className="flex flex-col sm:flex-row items-stretch gap-2">
+                    <div className="relative flex-grow">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                             type="email"
                             value={contactEmail}
                             onChange={(e) => setContactEmail(e.target.value)}
                             placeholder="name@example.com"
-                            className="pl-10"
+                            className="pl-10 h-10"
                             required
                             disabled={addLoading}
                         />
                     </div>
                     <Button type="submit" className="w-full sm:w-auto" disabled={addLoading}>
-                        {addLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {addLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                         {addLoading ? 'Adding...' : 'Add Contact'}
                     </Button>
                 </form>
@@ -189,15 +186,15 @@ export default function ContactsPage() {
                         <p className="text-center text-muted-foreground py-8">You haven't added any contacts yet.</p>
                     )}
                     {contacts.map((contact) => (
-                        <div key={contact.id} className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                        <div key={contact.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-4">
                                 <UserAvatar user={contact} />
-                                <div>
-                                    <p className="font-semibold">{contact.name}</p>
-                                    <p className="text-sm text-muted-foreground">{contact.email}</p>
+                                <div className="overflow-hidden">
+                                    <p className="font-semibold truncate">{contact.name}</p>
+                                    <p className="text-sm text-muted-foreground truncate">{contact.email}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 self-end sm:self-center">
                                 <Button size="sm" variant="outline" onClick={() => handleStartChat(contact.id)} disabled={chatLoading === contact.id}>
                                     {chatLoading === contact.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
                                     <span className="hidden sm:inline ml-2">Chat</span>

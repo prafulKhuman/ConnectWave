@@ -33,34 +33,34 @@ export function ViewContactDialog({ isOpen, setIsOpen, contact }: ViewContactDia
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader className="items-center text-center">
+      <DialogContent className="sm:max-w-sm w-[90%] rounded-lg">
+        <DialogHeader className="items-center text-center pt-4">
           <UserAvatar user={contact} className="h-24 w-24 mb-4" />
           <DialogTitle className="text-2xl">{contact.name}</DialogTitle>
           <DialogDescription>
             {getStatus(contact)}
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4 space-y-4">
+        <div className="py-4 space-y-3">
           <div className="flex items-center gap-4 p-3 rounded-md bg-muted/50">
-            <Mail className="h-5 w-5 text-muted-foreground" />
-            <div>
+            <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <div className='overflow-hidden'>
                 <p className="text-sm font-medium">Email</p>
-                <p className="text-sm text-muted-foreground">{contact.email}</p>
+                <p className="text-sm text-muted-foreground truncate">{contact.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-4 p-3 rounded-md bg-muted/50">
-            <Phone className="h-5 w-5 text-muted-foreground" />
-             <div>
+            <Phone className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+             <div className='overflow-hidden'>
                 <p className="text-sm font-medium">Phone</p>
-                <p className="text-sm text-muted-foreground">{contact.phone || 'Not available'}</p>
+                <p className="text-sm text-muted-foreground truncate">{contact.mobileNumber || 'Not available'}</p>
             </div>
           </div>
           <div className="flex items-center gap-4 p-3 rounded-md bg-muted/50">
-            <User className="h-5 w-5 text-muted-foreground" />
-             <div>
+            <User className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+             <div className='overflow-hidden'>
                 <p className="text-sm font-medium">Name</p>
-                <p className="text-sm text-muted-foreground">{contact.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{contact.name}</p>
             </div>
           </div>
         </div>

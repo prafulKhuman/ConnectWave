@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { rtdb } from '@/lib/firebase';
 import { ref, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 export default function Home() {
@@ -45,6 +46,7 @@ export default function Home() {
   const [confirmNewPin, setConfirmNewPin] = React.useState('');
   const [forgotPinLoading, setForgotPinLoading] = React.useState(false);
   const [isTabVisible, setIsTabVisible] = React.useState(true);
+  const isMobile = useIsMobile();
 
 
   const router = useRouter();
@@ -129,8 +131,9 @@ export default function Home() {
             // The selected chat was deleted or is no longer available, so unselect it
             setSelectedChat(null);
         }
-    } else if (chats.length > 0) {
+    } else if (chats.length > 0 && !isMobile) {
         // If no chat is selected and we have chats, select the one with the most recent message.
+        // On mobile, we don't auto-select a chat.
         const sortedChats = [...chats].sort((a, b) => {
             const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
             const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
@@ -143,7 +146,7 @@ export default function Home() {
         setSelectedChat(sortedChats[0]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chats, currentUser]);
+  }, [chats, currentUser, isMobile]);
 
 
   const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
@@ -273,11 +276,8 @@ export default function Home() {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <div className="flex flex-col items-center gap-4">
-                <Skeleton className="h-16 w-16 rounded-full" />
-                <div className="space-y-2">
-                    <Skeleton className="h-4 w-[250px]" />
-                    <Skeleton className="h-4 w-[200px]" />
-                </div>
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-muted-foreground">Connecting...</p>
             </div>
         </div>
     );
@@ -353,9 +353,9 @@ export default function Home() {
                   <Label htmlFor="confirm-new-pin">Confirm New PIN</Label>
                   <Input id="confirm-new-pin" type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value)} maxLength={4} disabled={forgotPinLoading} required/>
                 </div>
-                <DialogFooter className="!flex-row !justify-between">
+                <DialogFooter className="!flex-row !justify-between items-center pt-2">
                     <Button type="button" variant="outline" onClick={() => { setIsForgotPinModalOpen(false); setIsPinModalOpen(true); }} disabled={forgotPinLoading}>
-                       <ArrowLeft className="mr-2 h-4 w-4" /> Back to Unlock
+                       <ArrowLeft className="mr-2 h-4 w-4" /> Back
                     </Button>
                     <Button type="submit" className="w-fit" disabled={forgotPinLoading}>
                         {forgotPinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -368,20 +368,32 @@ export default function Home() {
     
       <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
-            <div className="flex h-screen w-full">
+            <div className="h-screen w-full flex">
             {currentUser && !isAppLocked && (
               <>
-                <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
-                    <ChatList
+                <div className={cn(
+                  "h-full w-full md:w-[380px] md:border-r",
+                  (isMobile && selectedChat) && "hidden"
+                )}>
+                  <ChatList
                     chats={chats}
                     selectedChat={selectedChat}
                     setSelectedChat={setSelectedChat}
                     currentUser={currentUser}
-                    />
-                </Sidebar>
-                <SidebarInset className="flex flex-1 flex-col">
-                    <ConversationView selectedChat={selectedChat} currentUser={currentUser} isTabVisible={isTabVisible} />
-                </SidebarInset>
+                  />
+                </div>
+                <div className={cn(
+                  "h-full flex-1",
+                   (!selectedChat) && "hidden md:flex"
+                )}>
+                  <ConversationView 
+                    key={selectedChat?.id} 
+                    selectedChat={selectedChat} 
+                    currentUser={currentUser} 
+                    isTabVisible={isTabVisible} 
+                    onBack={() => setSelectedChat(null)}
+                  />
+                </div>
               </>
             )}
             </div>

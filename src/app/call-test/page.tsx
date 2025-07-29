@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Suspense } from 'react';
@@ -18,16 +19,19 @@ function CallTestClient() {
   };
 
   const caller = {
+    id: 'user2',
     name: 'Jane Doe',
     avatar: 'https://placehold.co/100x100.png',
   };
 
   if (!callType) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-4">
-        <h1 className="text-2xl font-bold">Call UI Test Page</h1>
-        <p className="text-muted-foreground">Click a button to simulate an incoming call.</p>
-        <div className="flex gap-4">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-4 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold">Call UI Test Page</h1>
+        <p className="text-muted-foreground max-w-md">
+          This is a test page to simulate incoming calls. Click a button below to see the call interface.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 mt-4">
             <Button onClick={() => router.push('/call-test?type=audio')}>Simulate Audio Call</Button>
             <Button onClick={() => router.push('/call-test?type=video')}>Simulate Video Call</Button>
         </div>
@@ -51,7 +55,7 @@ function LoadingFallback() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-4">
       <Skeleton className="h-24 w-24 rounded-full" />
-      <div className="space-y-2">
+      <div className="space-y-2 text-center">
           <Skeleton className="h-6 w-[250px]" />
           <Skeleton className="h-4 w-[200px]" />
       </div>

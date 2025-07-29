@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Camera } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Camera, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
   Popover,
@@ -31,7 +30,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
@@ -40,6 +38,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CameraView } from './camera-view';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -55,6 +54,7 @@ type ConversationViewProps = {
   selectedChat: Chat | null;
   currentUser: Contact;
   isTabVisible: boolean;
+  onBack: () => void;
 };
 
 const MessageStatus = ({ status }: { status?: Message['status'] }) => {
@@ -70,7 +70,7 @@ const MessageStatus = ({ status }: { status?: Message['status'] }) => {
     return null;
 };
 
-export function ConversationView({ selectedChat, currentUser, isTabVisible }: ConversationViewProps) {
+export function ConversationView({ selectedChat, currentUser, isTabVisible, onBack }: ConversationViewProps) {
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const messageInputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -93,6 +93,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
 
   const { toast } = useToast();
   const router = useRouter();
+  const isMobile = useIsMobile();
 
 
   React.useEffect(() => {
@@ -112,7 +113,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
 
   React.useEffect(() => {
     if (scrollViewportRef.current) {
-        // A small delay to allow the DOM to update before scrolling
       setTimeout(() => {
         if (scrollViewportRef.current) {
             scrollViewportRef.current.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'auto' });
@@ -132,7 +132,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         }
   }, [messages, selectedChat, currentUser.id, isTabVisible]);
 
-  // Typing indicator effect
   React.useEffect(() => {
     if (!selectedChat) return;
     
@@ -355,10 +354,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
 
   if (!selectedChat) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-background/50 text-center">
+      <div className="flex h-full flex-col items-center justify-center bg-background/50 text-center p-4">
         <MessageSquareHeart className="h-16 w-16 text-muted-foreground/50" />
         <h2 className="mt-4 text-2xl font-semibold">Welcome to ConnectWave</h2>
-        <p className="mt-2 text-muted-foreground">Select a chat to start messaging.</p>
+        <p className="mt-2 text-muted-foreground">Select a chat to start messaging, or start a new one!</p>
       </div>
     );
   }
@@ -366,11 +365,11 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const renderMessageContent = (message: Message) => {
     switch (message.type) {
         case 'image':
-            return <img src={message.content} alt={message.fileName || 'image'} className="max-w-xs rounded-lg cursor-pointer" onClick={() => window.open(message.content, '_blank')} />;
+            return <img src={message.content} alt={message.fileName || 'image'} className="max-w-full sm:max-w-xs rounded-lg cursor-pointer" onClick={() => window.open(message.content, '_blank')} />;
         case 'video':
             return (
                 <div className="relative group">
-                    <video src={message.content} controls className="max-w-xs rounded-lg" />
+                    <video src={message.content} controls className="max-w-full sm:max-w-xs rounded-lg" />
                     <a href={message.content} download={message.fileName} className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button size="icon" variant="secondary"><MoreHorizontal/></Button>
                     </a>
@@ -380,39 +379,44 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             return <audio controls src={message.content} className="w-full max-w-xs" />;
         case 'file':
             return (
-                <a href={message.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-muted p-2 rounded-lg hover:bg-muted/80">
-                   <FileIcon className="h-6 w-6" />
-                   <span>{message.fileName || 'View File'}</span>
+                <a href={message.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-muted p-2 rounded-lg hover:bg-muted/80 max-w-full">
+                   <FileIcon className="h-6 w-6 flex-shrink-0" />
+                   <span className="truncate">{message.fileName || 'View File'}</span>
                 </a>
             )
         default:
-            return <p className="whitespace-pre-wrap">{message.content}</p>;
+            return <p className="whitespace-pre-wrap break-words">{message.content}</p>;
     }
   }
 
   return (
     <div className="flex h-full flex-col chat-background">
-      <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-3">
-        <div className="flex items-center gap-3">
+      <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-2 sm:p-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {isMobile && (
+            <Button variant="ghost" size="icon" onClick={onBack}>
+                <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
           <UserAvatar user={{ name: details.name, avatar: details.avatar, online: details.online }} />
-          <div>
-            <h2 className="font-semibold">{details.name}</h2>
-            <p className="text-sm text-muted-foreground">{details.status}</p>
+          <div className="flex-1 overflow-hidden">
+            <h2 className="font-semibold truncate">{details.name}</h2>
+            <p className="text-sm text-muted-foreground truncate">{details.status}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/call-test?type=audio`)}>
-            <Phone className="h-5 w-5" />
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => router.push(`/call-test?type=audio`)}>
+            <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="sr-only">Audio Call</span>
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/call-test?type=video`)}>
-            <Video className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => router.push(`/call-test?type=video`)}>
+            <Video className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="sr-only">Video Call</span>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
+                <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="sr-only">More options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -480,10 +484,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                     >
                       <div
                         className={cn(
-                          'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
+                          'relative max-w-[85%] sm:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
                           message.sender?.id === currentUser.id
                             ? 'bg-primary/80 text-primary-foreground'
-                            : 'bg-card'
+                            : 'bg-card shadow-sm'
                         )}
                       >
                         {renderMessageContent(message)}
@@ -516,7 +520,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                                                 <AlertDialogDescription>
                                                     Are you sure you want to delete this message? This action cannot be undone.
                                                 </AlertDialogDescription>
-                                                <AlertDialogFooter className="sm:justify-between">
+                                                <AlertDialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
                                                     <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
                                                     <div className="flex flex-col-reverse sm:flex-row gap-2">
                                                         <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'me'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
@@ -560,10 +564,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
           </AlertDialogContent>
       </AlertDialog>
 
-      <footer className="flex-shrink-0 border-t bg-card p-3">
+      <footer className="flex-shrink-0 border-t bg-card p-2 sm:p-3">
         {isChatBlocked ? (
-            <div className="flex items-center justify-center p-2 rounded-md bg-yellow-100 text-yellow-800 text-sm">
-                <Ban className="h-5 w-5 mr-2" />
+            <div className="flex items-center justify-center p-2 rounded-md bg-yellow-100 text-yellow-800 text-sm text-center">
+                <Ban className="h-5 w-5 mr-2 flex-shrink-0" />
                 {didIBlock ? 'You have blocked this user. Unblock them from the options menu to send messages.' : 'You cannot reply to this conversation because you are blocked.'}
             </div>
         ) : editingMessage ? (
@@ -576,23 +580,25 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             </div>
         ) : (
              <div className="flex items-end gap-2">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
-                            <Smile className="h-5 w-5" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto border-0 p-0 mb-2">
-                        <EmojiPicker onEmojiClick={onEmojiClick} />
-                    </PopoverContent>
-                </Popover>
-                
-                <Button variant="ghost" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isSending || isUploading}>
-                    <Camera className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-0.5">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-9 w-9" disabled={isSending || isUploading}>
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto border-0 p-0 mb-2">
+                            <EmojiPicker onEmojiClick={onEmojiClick} />
+                        </PopoverContent>
+                    </Popover>
+                    
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsCameraOpen(true)} disabled={isSending || isUploading}>
+                        <Camera className="h-5 w-5" />
+                    </Button>
+                </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
-                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isSending || isUploading}>
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => fileInputRef.current?.click()} disabled={isSending || isUploading}>
                    {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                 </Button>
                 <Textarea
@@ -605,7 +611,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                     rows={1}
                     disabled={isSending || isUploading}
                 />
-                <Button onClick={handleSendMessage} disabled={isSending || isUploading || (!newMessage.trim() && !editingMessage)}>
+                <Button onClick={handleSendMessage} className="h-9 w-9" size="icon" disabled={isSending || isUploading || (!newMessage.trim() && !editingMessage)}>
                     {isSending || isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </Button>
              </div>
