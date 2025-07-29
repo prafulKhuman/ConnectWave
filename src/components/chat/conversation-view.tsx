@@ -89,11 +89,14 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
       if (participant && selectedChat.type === 'direct') {
         const unsubStatus = onUserStatusChange(participant.id, (status) => {
-          setOtherParticipant(prev => ({
-            ...prev!,
-            online: status.state === 'online',
-            lastSeen: new Date(status.last_changed)
-          }));
+          setOtherParticipant(prev => {
+            if (!prev) return undefined;
+            return {
+              ...prev,
+              online: status.state === 'online',
+              lastSeen: new Date(status.last_changed)
+            }
+          });
         });
         return () => {
           unsubscribe();
