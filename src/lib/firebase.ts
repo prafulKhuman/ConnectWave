@@ -142,58 +142,61 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 
 
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
-    const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
+  const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
 
-    return onSnapshot(chatsQuery, async (chatsSnapshot) => {
-        if (chatsSnapshot.empty) {
-            callback([]);
-            return;
-        }
-        
-        const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
-        
-        if (allParticipantIds.length === 0) {
-            callback([]);
-            return;
-        }
+  return onSnapshot(chatsQuery, async (chatsSnapshot) => {
+    if (chatsSnapshot.empty) {
+      callback([]);
+      return;
+    }
 
-        // Chunk participant IDs to avoid 'in' query limit of 30
-        const participantChunks: string[][] = [];
-        for (let i = 0; i < allParticipantIds.length; i += 30) {
-            participantChunks.push(allParticipantIds.slice(i, i + 30));
-        }
+    const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
+    
+    if (allParticipantIds.length === 0) {
+      callback([]);
+      return;
+    }
 
-        const participantsMap = new Map<string, Contact>();
-        
-        for (const chunk of participantChunks) {
-            if (chunk.length === 0) continue;
-            const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
-            const usersSnapshot = await getDocs(usersQuery);
-            usersSnapshot.forEach(userDoc => {
-                 const data = userDoc.data();
-                 const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
-                 participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
-            });
-        }
+    const participantsMap = new Map<string, Contact>();
+    
+    // Chunk participant IDs to avoid 'in' query limit of 30
+    const participantChunks: string[][] = [];
+    for (let i = 0; i < allParticipantIds.length; i += 30) {
+        participantChunks.push(allParticipantIds.slice(i, i + 30));
+    }
 
-
-        // Listen to realtime status for all participants
-        allParticipantIds.forEach(id => {
-            const userStatusRef = rtdbRef(rtdb, '/status/' + id);
-            onValue(userStatusRef, (snapshot) => {
-                if(snapshot.exists()) {
-                    const status = snapshot.val();
-                    const user = participantsMap.get(id);
-                    if(user) {
-                        user.online = status.state === 'online';
-                        if(status.state === 'offline') {
-                            user.lastSeen = new Date(status.last_changed);
-                        }
-                    }
-                }
-            })
+    for (const chunk of participantChunks) {
+        if (chunk.length === 0) continue;
+        const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
+        const usersSnapshot = await getDocs(usersQuery);
+        usersSnapshot.forEach(userDoc => {
+             const data = userDoc.data();
+             const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+             participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
         });
+    }
 
+    // Set up a single listener for all participant statuses
+    const statusRef = rtdbRef(rtdb, 'status');
+    onValue(statusRef, (snapshot) => {
+        const statuses = snapshot.val();
+        if (!statuses) return;
+        
+        participantsMap.forEach(participant => {
+            const status = statuses[participant.id];
+            if (status) {
+                participant.online = status.state === 'online';
+                 if(status.state === 'offline') {
+                    participant.lastSeen = new Date(status.last_changed);
+                }
+            }
+        });
+        
+        // After updating statuses, re-process chats and call the callback
+        processChats();
+    });
+
+    const processChats = async () => {
         const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
             const chatData = chatDoc.data();
             
@@ -203,6 +206,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
 
             const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
             const messagesSnapshot = await getDocs(messagesQuery);
+            
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
                 const sender = participantsMap.get(msgData.senderId);
@@ -227,22 +231,25 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                 messages,
             } as Chat;
         });
-
+        
         const chats = await Promise.all(chatPromises);
         callback(chats);
-    });
+    }
+    
+    // Initial processing
+    processChats();
+  });
 };
 
 const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, participants: Contact[]) => {
     const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
+    const participantsMap = new Map(participants.map(p => [p.id, p]));
 
     return onSnapshot(q, (querySnapshot) => {
         const messages = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            let sender = participants.find(p => p.id === data.senderId);
-            if (!sender) {
-                sender = { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '' } as Contact;
-            }
+            const sender = participantsMap.get(data.senderId) || { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '' } as Contact;
+            
             return {
                 id: doc.id,
                 sender: sender,
