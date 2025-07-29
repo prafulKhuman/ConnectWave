@@ -3,6 +3,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const messageInputRef = React.useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
@@ -80,7 +82,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const { toast } = useToast();
 
   React.useEffect(() => {
-    if (messageInputRef.current) {
+    if (messageInputRef.current && forceFocus) {
       messageInputRef.current.focus();
     }
   }, [forceFocus]);
@@ -313,7 +315,11 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     if (!contact) return '';
     if (contact.online) return 'Online';
     if (contact.lastSeen) {
-        return `Last seen ${formatDistanceToNow(new Date(contact.lastSeen), { addSuffix: true })}`;
+        try {
+            return `Last seen ${formatDistanceToNow(new Date(contact.lastSeen), { addSuffix: true })}`;
+        } catch (e) {
+            return 'Offline';
+        }
     }
     return 'Offline';
   };
@@ -346,8 +352,8 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon"><Video className="h-5 w-5" /></Button>
-          <Button variant="ghost" size="icon"><Phone className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/call-test?type=video')}><Video className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/call-test?type=audio')}><Phone className="h-5 w-5" /></Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
@@ -556,5 +562,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     </div>
   );
 }
+
+    
 
     
