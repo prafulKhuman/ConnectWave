@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
+import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue, sendFeedback } from '@/lib/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import {
   AlertDialogHeader,
   AlertDialogFooter,
   AlertDialogDescription,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '../ui/textarea';
 
@@ -55,6 +56,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
   const [quickChatLoading, setQuickChatLoading] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [isFeatureUnavailableDialogOpen, setIsFeatureUnavailableDialogOpen] = useState(false);
   
   const router = useRouter();
@@ -175,17 +177,28 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
-  const handleSendFeedback = (e: React.FormEvent) => {
+  const handleSendFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackMessage.trim()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter your feedback before sending.' });
         return;
     }
-    const subject = "ConnectWave App Feedback";
-    const body = feedbackMessage;
-    const mailtoLink = `mailto:praful.khuman@ics-global.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoLink;
-    setIsOpen(false);
+    if (!currentUser) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send feedback.' });
+        return;
+    }
+    setFeedbackLoading(true);
+    try {
+        await sendFeedback(feedbackMessage, currentUser);
+        toast({ title: 'Feedback Sent', description: 'Thank you for your feedback! We will review it shortly.' });
+        setFeedbackMessage('');
+        setIsOpen(false);
+    } catch (error) {
+        console.error("Feedback error:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to send feedback. Please try again later.' });
+    } finally {
+        setFeedbackLoading(false);
+    }
   }
 
   const navigateToContacts = () => {
@@ -196,7 +209,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const ComingSoonDialog = (
     <AlertDialogContent>
         <AlertDialogHeader>
-            <DialogTitle>Feature Not Available</DialogTitle>
+            <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
             <AlertDialogDescription>
                 This feature is currently under development and will be available soon. We appreciate your patience and encourage you to explore other available features in the meantime. Thank you for your understanding!
             </AlertDialogDescription>
@@ -241,7 +254,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
                     <UserAvatar user={{ ...currentUser, avatar: avatarPreview }} className="h-24 w-24" />
                       <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted">
                           <Upload className="h-4 w-4" />
-                          <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} onClick={() => setIsFeatureUnavailableDialogOpen(true)} />
+                          <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} onClick={(e) => { e.preventDefault(); setIsFeatureUnavailableDialogOpen(true); }} />
                       </Label>
                 </div>
             </div>
@@ -326,8 +339,10 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
                     onChange={(e) => setFeedbackMessage(e.target.value)}
                     placeholder="Describe your feedback here..."
                     rows={5}
+                    disabled={feedbackLoading}
                 />
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={feedbackLoading}>
+                    {feedbackLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Send Feedback
                 </Button>
             </form>
@@ -338,5 +353,3 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     </Dialog>
   );
 }
-
-    
