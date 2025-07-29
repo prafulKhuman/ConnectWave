@@ -113,9 +113,17 @@ export default function Home() {
                 unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
                     setChats(newChats);
                     
-                    const currentSelectedChatExists = newChats.some(c => c.id === selectedChat?.id);
-
-                    if (newChats.length > 0 && (!selectedChat || !currentSelectedChatExists)) {
+                    if (selectedChat) {
+                        // If a chat is already selected, find the updated version of it and set it.
+                        const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
+                        if (updatedSelectedChat) {
+                            setSelectedChat(updatedSelectedChat);
+                        } else {
+                            // The selected chat was deleted, so unselect it.
+                            setSelectedChat(null);
+                        }
+                    } else if (newChats.length > 0) {
+                         // If no chat is selected, select the one with the most recent message.
                         const sortedChats = [...newChats].sort((a, b) => {
                              const isAPinned = a.pinnedBy?.includes(userProfile.id) || false;
                              const isBPinned = b.pinnedBy?.includes(userProfile.id) || false;
@@ -126,12 +134,8 @@ export default function Home() {
                              return timeB - timeA;
                         });
                         setSelectedChat(sortedChats[0]);
-                    } else if (selectedChat) {
-                        const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
-                        if (updatedSelectedChat) {
-                            setSelectedChat(updatedSelectedChat);
-                        }
                     }
+                    
                     setLoading(false);
                 });
             }
