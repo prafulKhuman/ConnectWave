@@ -53,30 +53,32 @@ export default function Home() {
       if (authUser) {
         setUser(authUser);
         manageUserPresence(authUser.uid);
-
         const userProfile = await getCurrentUser(authUser.uid);
         setCurrentUser(userProfile);
 
-        if (userProfile) {
-          if (userProfile.pin) {
-            setIsPinModalOpen(true);
-            setLoading(false); // Stop main loader, PIN modal will show
-          } else {
-            // No PIN, load chats directly
-            setLoading(true); // Show loader while fetching chats
-            unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
-              setChats(newChats);
-              if (newChats.length > 0 && !selectedChat) {
-                  setSelectedChat(newChats[0]);
-              }
-              setLoading(false);
-            });
-          }
-        } else {
+        if (userProfile?.pin) {
+          setIsPinModalOpen(true);
           setLoading(false);
+        } else if (userProfile) {
+          setLoading(true);
+          unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
+            setChats(newChats);
+            if (newChats.length > 0 && !selectedChat) {
+                const sortedChats = [...newChats].sort((a, b) => {
+                    const aTimestamp = a.messages[0]?.timestamp || "0";
+                    const bTimestamp = b.messages[0]?.timestamp || "0";
+                    return bTimestamp.localeCompare(aTimestamp);
+                });
+                setSelectedChat(sortedChats[0]);
+            }
+            setLoading(false);
+          });
+        } else {
           router.push('/login');
         }
       } else {
+        setUser(null);
+        setCurrentUser(null);
         setLoading(false);
         router.push('/login');
       }
@@ -88,7 +90,9 @@ export default function Home() {
         unsubscribeChats();
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,22 +104,24 @@ export default function Home() {
     if (isPinValid) {
       toast({ title: "Access Granted", description: "Welcome back!" });
       setIsPinModalOpen(false);
-      
-      // Load chats after PIN is validated
       setLoading(true);
       const unsubscribeChats = getChatsForUser(currentUser.id, (newChats) => {
         setChats(newChats);
-        if (newChats.length > 0 && !selectedChat) {
-            setSelectedChat(newChats[0]);
+         if (newChats.length > 0 && !selectedChat) {
+            const sortedChats = [...newChats].sort((a, b) => {
+                const aTimestamp = a.messages[0]?.timestamp || "0";
+                const bTimestamp = b.messages[0]?.timestamp || "0";
+                return bTimestamp.localeCompare(aTimestamp);
+            });
+            setSelectedChat(sortedChats[0]);
         }
         setLoading(false);
       });
-      // This listener will be detached when user logs out and auth state changes.
     } else {
       toast({ variant: 'destructive', title: "Invalid PIN", description: "The PIN you entered is incorrect." });
+      setPinLoading(false);
     }
     setPin('');
-    setPinLoading(false);
   }
 
   const handleForgotPinSubmit = async (e: React.FormEvent) => {
@@ -137,19 +143,29 @@ export default function Home() {
         
         const hashedPin = await hashValue(newPin);
         await updateUserProfile(currentUser.id, { pin: hashedPin });
+        
+        const updatedUser = await getCurrentUser(currentUser.id);
+        setCurrentUser(updatedUser);
 
         toast({ title: "PIN Reset Successful", description: "Your App Lock PIN has been changed." });
         
         setIsForgotPinModalOpen(false);
-        // After resetting, we can treat it as a successful PIN submission to unlock the app
-        setPin(newPin); // Set the new pin
-        setIsPinModalOpen(true); // Go back to the PIN screen
-        // Manually trigger the submit logic for the main PIN screen
-        const mockEvent = { preventDefault: () => {} } as React.FormEvent;
-        // This is a bit of a trick, but it's better than duplicating the chat loading logic
-        // We'll need a small delay for state to update
-        setTimeout(() => handlePinSubmit(mockEvent), 100);
-
+        setIsPinModalOpen(false); // Close forgot pin, and also close the main pin modal
+        
+        // Now that the pin is reset and modals are closed, load the chats
+        setLoading(true);
+        const unsubscribeChats = getChatsForUser(currentUser.id, (newChats) => {
+          setChats(newChats);
+           if (newChats.length > 0 && !selectedChat) {
+              const sortedChats = [...newChats].sort((a, b) => {
+                  const aTimestamp = a.messages[0]?.timestamp || "0";
+                  const bTimestamp = b.messages[0]?.timestamp || "0";
+                  return bTimestamp.localeCompare(aTimestamp);
+              });
+              setSelectedChat(sortedChats[0]);
+          }
+          setLoading(false);
+        });
 
     } catch (error: any) {
         let errorMessage = 'Failed to reset PIN. Please try again.';
@@ -266,7 +282,7 @@ export default function Home() {
     
       <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
-            <div className="flex h-full w-full">
+            <div className="flex h-screen w-full">
             <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
                 <ChatList
                 chats={chats}

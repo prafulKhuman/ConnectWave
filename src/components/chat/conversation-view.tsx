@@ -158,7 +158,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     messageInputRef.current?.focus();
   };
   
-  if (!selectedChat) {
+  if (!selectedChat || !currentUser) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-background p-4 text-center">
         <div className="m-auto flex flex-col items-center gap-2">
@@ -231,10 +231,12 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               <DropdownMenuItem onSelect={() => setIsClearChatAlertOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" /> Clear Chat
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsBlockUserAlertOpen(true)} className={didIBlock ? "" : (amIBlocked ? "hidden" : "")}>
-                {didIBlock ? <UserX className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
-                {didIBlock ? 'Unblock' : 'Block'}
-              </DropdownMenuItem>
+              {selectedChat.type === 'direct' && (
+                 <DropdownMenuItem onSelect={() => setIsBlockUserAlertOpen(true)} className={amIBlocked ? "hidden" : ""}>
+                    {didIBlock ? <UserX className="mr-2 h-4 w-4" /> : <Ban className="mr-2 h-4 w-4" />}
+                    {didIBlock ? 'Unblock' : 'Block'}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -287,7 +289,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         {isChatBlocked ? (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
              <Ban className="mr-2 h-4 w-4" />
-             {didIBlock ? `You blocked ${otherParticipant?.name}.` : `You are blocked by ${otherParticipant?.name}.`}
+             {didIBlock ? `You blocked ${otherParticipant?.name}.` : `You can't reply to this conversation.`}
           </div>
         ) : (
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
