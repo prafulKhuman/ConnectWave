@@ -24,8 +24,9 @@ import { KeyRound, Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { goOffline, goOnline } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
+import { ref, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+
 
 export default function Home() {
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -102,39 +103,62 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
+
   React.useEffect(() => {
     let inactivityTimer: NodeJS.Timeout;
+    let isInactive = false;
+    
+    if (!currentUser || isAppLocked) {
+        return;
+    }
+
+    const userStatusRef = ref(rtdb, '/status/' + currentUser.id);
+
+    const goOffline = () => {
+        isInactive = true;
+        rtdbSet(userStatusRef, {
+            state: 'offline',
+            last_changed: rtdbServerTimestamp(),
+        });
+    };
+
+    const goOnline = () => {
+         rtdbSet(userStatusRef, {
+            state: 'online',
+            last_changed: rtdbServerTimestamp(),
+        });
+    };
 
     const resetTimer = () => {
         clearTimeout(inactivityTimer);
-        goOnline(rtdb); // User is active, set status to online
-        inactivityTimer = setTimeout(() => {
-            goOffline(rtdb); // User is inactive, set status to offline
-        }, 5 * 60 * 1000); // 5 minutes
+        if (isInactive) {
+            isInactive = false;
+            goOnline(); // User is active again, set status to online
+        }
+        inactivityTimer = setTimeout(goOffline, 2 * 60 * 1000); // 2 minutes
     };
 
     const handleActivity = () => {
         resetTimer();
     };
-
-    // Add event listeners for user activity
+    
     window.addEventListener('mousemove', handleActivity);
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('click', handleActivity);
     window.addEventListener('scroll', handleActivity);
-
+    
     // Initial timer setup
     resetTimer();
 
     return () => {
-        // Cleanup event listeners and timer
         clearTimeout(inactivityTimer);
         window.removeEventListener('mousemove', handleActivity);
         window.removeEventListener('keydown', handleActivity);
         window.removeEventListener('click', handleActivity);
         window.removeEventListener('scroll', handleActivity);
     };
-  }, []);
+  }, [currentUser, isAppLocked]);
 
 
   const handlePinSubmit = async (e: React.FormEvent) => {
@@ -223,8 +247,6 @@ export default function Home() {
         setForgotPinLoading(false);
     }
   }
-
-  const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
 
   if (loading && !isAppLocked) {
     return (
@@ -343,3 +365,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
