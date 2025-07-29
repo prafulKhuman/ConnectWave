@@ -471,81 +471,79 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
         <CameraView isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSend={handleSendFile} />
       </header>
-       <div className="flex-1 flex flex-col overflow-hidden">
-         <div className="flex-1 overflow-y-auto">
-            <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
-                <div className="p-4 space-y-4">
-                  {messages.map((message) => (
+       <div className="flex-1 overflow-y-auto">
+          <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
+              <div className="p-2 sm:p-4 space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      'flex items-end gap-2 group',
+                      message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
+                    )}
+                  >
                     <div
-                      key={message.id}
                       className={cn(
-                        'flex items-end gap-2 group',
-                        message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
+                        'relative max-w-[80%] sm:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
+                        message.sender?.id === currentUser.id
+                          ? 'bg-primary/80 text-primary-foreground'
+                          : 'bg-card shadow-sm'
                       )}
                     >
-                      <div
-                        className={cn(
-                          'relative max-w-[85%] sm:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
-                          message.sender?.id === currentUser.id
-                            ? 'bg-primary/80 text-primary-foreground'
-                            : 'bg-card shadow-sm'
-                        )}
-                      >
-                        {renderMessageContent(message)}
-                        <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
-                            {message.edited && <span>Edited</span>}
-                            <time>{message.timestamp}</time>
-                            {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
-                        </div>
-
-                        {message.sender?.id === currentUser.id && (
-                             <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem onClick={() => handleEditMessage(message)}>
-                                            <PenSquare className="mr-2 h-4 w-4" /> Edit
-                                        </DropdownMenuItem>
-                                        <AlertDialog open={dialogState.deleteMessage?.id === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessage: open ? message : undefined}))}>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Delete message?</AlertDialogTitle></AlertDialogHeader>
-                                                <AlertDialogDescription>
-                                                    Are you sure you want to delete this message? This action cannot be undone.
-                                                </AlertDialogDescription>
-                                                <AlertDialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
-                                                    <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
-                                                    <div className="flex flex-col-reverse sm:flex-row gap-2">
-                                                        <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'me'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                                            {actionLoading && dialogState.deleteType === 'me' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                                                             Delete for me
-                                                        </AlertDialogAction>
-                                                         <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'everyone'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                                            {actionLoading && dialogState.deleteType === 'everyone' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
-                                                            Delete for everyone
-                                                        </AlertDialogAction>
-                                                    </div>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </DropdownMenuContent>
-                                 </DropdownMenu>
-                             </div>
-                        )}
+                      {renderMessageContent(message)}
+                      <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
+                          {message.edited && <span>Edited</span>}
+                          <time>{message.timestamp}</time>
+                          {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
                       </div>
+
+                      {message.sender?.id === currentUser.id && (
+                           <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent>
+                                      <DropdownMenuItem onClick={() => handleEditMessage(message)}>
+                                          <PenSquare className="mr-2 h-4 w-4" /> Edit
+                                      </DropdownMenuItem>
+                                      <AlertDialog open={dialogState.deleteMessage?.id === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessage: open ? message : undefined}))}>
+                                          <AlertDialogTrigger asChild>
+                                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
+                                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                              </DropdownMenuItem>
+                                          </AlertDialogTrigger>
+                                          <AlertDialogContent>
+                                              <AlertDialogHeader><AlertDialogTitle>Delete message?</AlertDialogTitle></AlertDialogHeader>
+                                              <AlertDialogDescription>
+                                                  Are you sure you want to delete this message? This action cannot be undone.
+                                              </AlertDialogDescription>
+                                              <AlertDialogFooter className="sm:justify-between flex-col-reverse sm:flex-row gap-2">
+                                                  <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+                                                  <div className="flex flex-col-reverse sm:flex-row gap-2">
+                                                      <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'me'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                          {actionLoading && dialogState.deleteType === 'me' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                                           Delete for me
+                                                      </AlertDialogAction>
+                                                       <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'everyone'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                          {actionLoading && dialogState.deleteType === 'everyone' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                                          Delete for everyone
+                                                      </AlertDialogAction>
+                                                  </div>
+                                              </AlertDialogFooter>
+                                          </AlertDialogContent>
+                                      </AlertDialog>
+                                  </DropdownMenuContent>
+                               </DropdownMenu>
+                           </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-            </ScrollArea>
-         </div>
+                  </div>
+                ))}
+              </div>
+          </ScrollArea>
        </div>
 
       <AlertDialog open={!!(dialogState.deleteMessage && dialogState.deleteType)} onOpenChange={(open) => !open && setDialogState({})}>
