@@ -450,7 +450,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                 message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'
               )}
             >
-              {message.sender.id !== currentUser.id && <UserAvatar user={message.sender} className="h-8 w-8" />}
               <div
                 className={cn(
                   'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
@@ -500,7 +499,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                      </div>
                 )}
               </div>
-              {message.sender.id === currentUser.id && <UserAvatar user={currentUser} className="h-8 w-8" />}
             </div>
           ))}
         </div>
