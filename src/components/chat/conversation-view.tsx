@@ -74,9 +74,16 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const [deletingMessageId, setDeletingMessageId] = React.useState<string | null>(null);
   const [messageActionLoading, setMessageActionLoading] = React.useState(false);
   const [otherParticipant, setOtherParticipant] = React.useState<Contact | undefined>(undefined);
+  const [forceFocus, setForceFocus] = React.useState(false);
 
 
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    if (messageInputRef.current) {
+      messageInputRef.current.focus();
+    }
+  }, [forceFocus]);
 
   React.useEffect(() => {
     if (selectedChat) {
@@ -130,7 +137,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         toast({ variant: "destructive", title: "Error", description: "Failed to send message."});
       } finally {
         setLoading(false);
-        messageInputRef.current?.focus();
+        setForceFocus(f => !f);
       }
     }
   };
@@ -556,3 +563,5 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     </div>
   );
 }
+
+    
