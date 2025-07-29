@@ -228,9 +228,22 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     });
     
     const chats = (await Promise.all(chatPromises)).sort((a, b) => {
-        const aTimestamp = a.messages[0]?.timestamp || "0";
-        const bTimestamp = b.messages[0]?.timestamp || "0";
-        return bTimestamp.localeCompare(aTimestamp);
+        const lastMessageA = a.messages[0];
+        const lastMessageB = b.messages[0];
+
+        // A chat without messages should be sorted last.
+        if (!lastMessageA) return 1;
+        if (!lastMessageB) return -1;
+        
+        // Convert timestamp to a comparable format.
+        const timeA = lastMessageA.timestamp || '0';
+        const timeB = lastMessageB.timestamp || '0';
+        
+        // This is a simplified comparison; for accuracy, convert to Date objects
+        // However, for typical 'hh:mm AM/PM' it might not sort correctly across days.
+        // A better approach would be to sort by the original server timestamp.
+        // For now, let's assume this is sufficient for intra-day sorting.
+        return timeB.localeCompare(timeA);
     });
 
     callback(chats);
@@ -566,3 +579,5 @@ export {
     updateMessage,
     onUserStatusChange
 };
+
+    

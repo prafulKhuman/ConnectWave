@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, compareValue, hashValue, reauthenticateUser, updateUserProfile } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, compareValue, hashValue, reauthenticateUser, updateUserProfile, updateMessagesStatus } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
@@ -44,10 +44,37 @@ export default function Home() {
   const [newPin, setNewPin] = React.useState('');
   const [confirmNewPin, setConfirmNewPin] = React.useState('');
   const [forgotPinLoading, setForgotPinLoading] = React.useState(false);
+  const [isTabVisible, setIsTabVisible] = React.useState(true);
 
 
   const router = useRouter();
   const { toast } = useToast();
+
+   React.useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setIsTabVisible(true);
+      } else {
+        setIsTabVisible(false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (isTabVisible && selectedChat && currentUser) {
+      const incomingMessagesToUpdate = selectedChat.messages
+        .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read')
+        .map(m => m.id);
+
+      if (incomingMessagesToUpdate.length > 0) {
+        updateMessagesStatus(selectedChat.id, incomingMessagesToUpdate, 'read');
+      }
+    }
+  }, [isTabVisible, selectedChat, currentUser]);
 
   React.useEffect(() => {
     let unsubscribeAuth: (() => void) | undefined;
@@ -69,12 +96,17 @@ export default function Home() {
             setUser(authUser);
             unsubscribePresence = manageUserPresence(authUser.uid);
             const userProfile = await getCurrentUser(authUser.uid);
+            
+            if (!userProfile) {
+                router.push('/login');
+                return;
+            }
             setCurrentUser(userProfile);
 
             if (userProfile?.pin) {
                 setIsPinModalOpen(true);
                 setLoading(false);
-            } else if (userProfile) {
+            } else {
                 setLoading(true);
                 unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
                     setChats(newChats);
@@ -85,11 +117,15 @@ export default function Home() {
                             return bTimestamp.localeCompare(aTimestamp);
                         });
                         setSelectedChat(sortedChats[0]);
+                    } else if (selectedChat) {
+                        // Update the selected chat with new messages
+                        const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
+                        if (updatedSelectedChat) {
+                            setSelectedChat(updatedSelectedChat);
+                        }
                     }
                     setLoading(false);
                 });
-            } else {
-                router.push('/login');
             }
         } else {
             setUser(null);
@@ -107,7 +143,6 @@ export default function Home() {
 
   React.useEffect(() => {
     let inactivityTimer: NodeJS.Timeout;
-    let isInactive = false;
     
     if (!currentUser || isAppLocked) {
         return;
@@ -116,7 +151,6 @@ export default function Home() {
     const userStatusRef = ref(rtdb, '/status/' + currentUser.id);
 
     const goOffline = () => {
-        isInactive = true;
         rtdbSet(userStatusRef, {
             state: 'offline',
             last_changed: rtdbServerTimestamp(),
@@ -132,10 +166,7 @@ export default function Home() {
 
     const resetTimer = () => {
         clearTimeout(inactivityTimer);
-        if (isInactive) {
-            isInactive = false;
-            goOnline(); // User is active again, set status to online
-        }
+        goOnline(); // User is active, set status to online
         inactivityTimer = setTimeout(goOffline, 2 * 60 * 1000); // 2 minutes
     };
 
@@ -359,7 +390,7 @@ export default function Home() {
                     />
                 </Sidebar>
                 <SidebarInset className="flex flex-1 flex-col">
-                    <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
+                    <ConversationView selectedChat={selectedChat} currentUser={currentUser} isTabVisible={isTabVisible} />
                 </SidebarInset>
               </>
             )}
@@ -369,3 +400,5 @@ export default function Home() {
     </main>
   );
 }
+
+    

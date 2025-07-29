@@ -53,6 +53,7 @@ const ALLOWED_FILE_TYPES = [
 type ConversationViewProps = {
   selectedChat: Chat | null;
   currentUser: Contact;
+  isTabVisible: boolean;
 };
 
 const MessageStatus = ({ status }: { status: Message['status'] }) => {
@@ -68,14 +69,13 @@ const MessageStatus = ({ status }: { status: Message['status'] }) => {
     return null;
 };
 
-export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
+export function ConversationView({ selectedChat, currentUser, isTabVisible }: ConversationViewProps) {
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const messageInputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const [messages, setMessages] = React.useState<Message[]>([]);
-  const [newMessage, setNewMessage] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [isClearChatAlertOpen, setIsClearChatAlertOpen] = React.useState(false);
   const [isBlockUserAlertOpen, setIsBlockUserAlertOpen] = React.useState(false);
@@ -103,16 +103,29 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   React.useEffect(() => {
     if (selectedChat) {
       setLoading(true);
-      const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages) => {
+      const unsubscribe = getMessagesForChat(
+        selectedChat.id,
+        (newMessages) => {
           setMessages(newMessages);
-          const incomingMessagesToUpdate = newMessages
-              .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read')
-              .map(m => m.id);
 
-          if (incomingMessagesToUpdate.length > 0) {
-              updateMessagesStatus(selectedChat.id, incomingMessagesToUpdate, 'read');
+          const incomingMessagesToUpdateDelivered = newMessages
+            .filter(m => m.sender?.id !== currentUser.id && m.status === 'sent')
+            .map(m => m.id);
+
+          if (incomingMessagesToUpdateDelivered.length > 0) {
+            updateMessagesStatus(selectedChat.id, incomingMessagesToUpdateDelivered, 'delivered');
           }
-      }, selectedChat.participants);
+
+          const incomingMessagesToUpdateRead = newMessages
+            .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read' && isTabVisible)
+            .map(m => m.id);
+
+          if (incomingMessagesToUpdateRead.length > 0) {
+            updateMessagesStatus(selectedChat.id, incomingMessagesToUpdateRead, 'read');
+          }
+        },
+        selectedChat.participants
+      );
 
       setLoading(false);
 
@@ -138,7 +151,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
       return () => unsubscribe();
     }
-  }, [selectedChat, currentUser.id]);
+  }, [selectedChat, currentUser.id, isTabVisible]);
   
   React.useEffect(() => {
     scrollToBottom();
@@ -588,3 +601,5 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     </div>
   );
 }
+
+    
