@@ -178,91 +178,72 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     }));
 
     const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
-        const chatData = chatDoc.data();
-        
-        const participants = chatData.participantIds
-            .map((id: string) => participantsMap.get(id))
-            .filter(Boolean) as Contact[];
-
-        // Get last message
-        const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
-        const messagesSnapshot = await getDocs(messagesQuery);
-        
-        // Get unread count
-        const incomingMessagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), where("senderId", "!=", userId));
-        const incomingMessagesSnapshot = await getDocs(incomingMessagesQuery);
-        
-        let unreadCount = 0;
-        incomingMessagesSnapshot.forEach(doc => {
-            if (doc.data().status !== 'read') {
-                unreadCount++;
-            }
-        });
-
-
-        const messages = messagesSnapshot.docs.map(msgDoc => {
-            const msgData = msgDoc.data();
-            const sender = participantsMap.get(msgData.senderId);
-            let contentPreview = msgData.content;
+        return new Promise<Chat>((resolve) => {
+            const chatData = chatDoc.data();
             
-            switch (msgData.type) {
-                case 'image':
-                    contentPreview = `📷 ${msgData.fileName || 'Image'}`;
-                    break;
-                case 'video':
-                    contentPreview = `📹 ${msgData.fileName || 'Video'}`;
-                    break;
-                case 'audio':
-                    contentPreview = `🎵 ${msgData.fileName || 'Audio'}`;
-                    break;
-                case 'file':
-                    contentPreview = `📄 ${msgData.fileName || 'File'}`;
-                    break;
-                default: // text
-                    contentPreview = msgData.content;
-            }
+            const participants = chatData.participantIds
+                .map((id: string) => participantsMap.get(id))
+                .filter(Boolean) as Contact[];
 
-            return { 
-                id: msgDoc.id,
-                content: contentPreview,
-                timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
-                sender: sender!,
-                type: msgData.type || 'text',
-                status: msgData.status || 'sent',
-                edited: msgData.edited || false,
-                fileName: msgData.fileName
-            } as Message;
+            // Set up a real-time listener for messages to get last message and unread count
+            const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"));
+            
+            onSnapshot(messagesQuery, (messagesSnapshot) => {
+                const allMessages = messagesSnapshot.docs;
+                const lastMessageDoc = allMessages[0];
+
+                let unreadCount = 0;
+                allMessages.forEach(msgDoc => {
+                    const msgData = msgDoc.data();
+                    if (msgData.senderId !== userId && msgData.status !== 'read') {
+                        unreadCount++;
+                    }
+                });
+
+                let lastMessage: Message | undefined = undefined;
+                if(lastMessageDoc) {
+                    const msgData = lastMessageDoc.data();
+                    const sender = participantsMap.get(msgData.senderId);
+                    let contentPreview = msgData.content;
+                    
+                    switch (msgData.type) {
+                        case 'image': contentPreview = `📷 Image`; break;
+                        case 'video': contentPreview = `📹 Video`; break;
+                        case 'audio': contentPreview = `🎵 Audio`; break;
+                        case 'file': contentPreview = `📄 File`; break;
+                    }
+
+                    lastMessage = { 
+                        id: lastMessageDoc.id,
+                        content: contentPreview,
+                        timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
+                        sender: sender!,
+                        type: msgData.type || 'text',
+                        status: msgData.status || 'sent',
+                        edited: msgData.edited || false,
+                        fileName: msgData.fileName
+                    } as Message;
+                }
+
+                resolve({
+                    id: chatDoc.id,
+                    ...chatData,
+                    participants,
+                    messages: lastMessage ? [lastMessage] : [],
+                    unreadCount,
+                } as Chat);
+            });
         });
-
-        return {
-            id: chatDoc.id,
-            ...chatData,
-            participants,
-            messages,
-            unreadCount,
-        } as Chat;
     });
     
-    const chats = (await Promise.all(chatPromises)).sort((a, b) => {
-        const lastMessageA = a.messages[0];
-        const lastMessageB = b.messages[0];
-
-        // A chat without messages should be sorted last.
-        if (!lastMessageA) return 1;
-        if (!lastMessageB) return -1;
-        
-        // Convert timestamp to a comparable format.
-        const timeA = lastMessageA.timestamp || '0';
-        const timeB = lastMessageB.timestamp || '0';
-        
-        // This is a simplified comparison; for accuracy, convert to Date objects
-        // However, for typical 'hh:mm AM/PM' it might not sort correctly across days.
-        // A better approach would be to sort by the original server timestamp.
-        // For now, let's assume this is sufficient for intra-day sorting.
-        return timeB.localeCompare(timeA);
+    Promise.all(chatPromises).then((chats) => {
+        const sortedChats = chats.sort((a, b) => {
+            const timeA = a.messages[0]?.timestamp || "0";
+            const timeB = b.messages[0]?.timestamp || "0";
+            return timeB.localeCompare(timeA); // This is still imperfect for sorting across days.
+        });
+        callback(sortedChats);
     });
-
-    callback(chats);
   });
 
   return unsubscribe;
@@ -569,7 +550,12 @@ const setUserTypingStatus = (chatId: string, userId: string, userName: string, i
         // Optional: Add a timeout to automatically remove typing status
         // This is a failsafe in case the client disconnects abruptly
         setTimeout(() => {
-            rtdbSet(typingStatusRef, null);
+            const currentRef = rtdbRef(rtdb, `typing-status/${chatId}/${userId}`);
+            onValue(currentRef, (snapshot) => {
+                if (snapshot.exists() && snapshot.val().isTyping) {
+                   rtdbSet(currentRef, null);
+                }
+            }, { onlyOnce: true });
         }, 3000);
     } else {
         rtdbSet(typingStatusRef, null); // Remove the typing indicator

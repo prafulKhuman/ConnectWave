@@ -193,7 +193,9 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
         } finally {
             setIsSending(false);
-            setUserTypingStatus(selectedChat.id, currentUser.id, currentUser.name, false);
+            if (selectedChat) {
+                setUserTypingStatus(selectedChat.id, currentUser.id, currentUser.name, false);
+            }
         }
     }
   };
