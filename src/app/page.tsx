@@ -348,22 +348,24 @@ export default function Home() {
       <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
             <div className="flex h-screen w-full">
-            <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
-                <ChatList
-                chats={chats}
-                selectedChat={selectedChat}
-                setSelectedChat={setSelectedChat}
-                currentUser={currentUser!}
-                />
-            </Sidebar>
-            <SidebarInset className="flex flex-1 flex-col">
-                <ConversationView selectedChat={selectedChat} currentUser={currentUser!}/>
-            </SidebarInset>
+            {currentUser && !isAppLocked && (
+              <>
+                <Sidebar side="left" className="w-full max-w-sm border-r" collapsible="none">
+                    <ChatList
+                    chats={chats}
+                    selectedChat={selectedChat}
+                    setSelectedChat={setSelectedChat}
+                    currentUser={currentUser}
+                    />
+                </Sidebar>
+                <SidebarInset className="flex flex-1 flex-col">
+                    <ConversationView selectedChat={selectedChat} currentUser={currentUser}/>
+                </SidebarInset>
+              </>
+            )}
             </div>
         </SidebarProvider>
       </div>
     </main>
   );
 }
-
-    

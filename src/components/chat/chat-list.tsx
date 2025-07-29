@@ -51,6 +51,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
   const { toast } = useToast();
 
   React.useEffect(() => {
+    if (!currentUser) return; // Add guard clause
     setLocalChats(chats);
 
     const unsubscribers = chats.flatMap(chat => {
@@ -81,7 +82,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [chats, currentUser.id]);
+  }, [chats, currentUser]);
 
   const handleLogout = async () => {
     setLoading(true);
