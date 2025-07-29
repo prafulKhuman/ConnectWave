@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, User, Lock, UserPlus, Users, Upload, Loader2, Contact, MessageSquarePlus } from 'lucide-react';
+import { Settings, User, Lock, UserPlus, Users, Upload, Loader2, Contact, MessageSquarePlus, LifeBuoy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
@@ -31,6 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogDescription,
 } from '@/components/ui/alert-dialog';
+import { Textarea } from '../ui/textarea';
 
 
 type SettingsDialogProps = {
@@ -44,6 +45,8 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser?.avatar);
@@ -66,6 +69,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
       setOldPin('');
       setNewPin('');
       setConfirmPin('');
+      setFeedbackMessage('');
     }
   }, [isOpen, currentUser]);
 
@@ -171,6 +175,19 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
+  const handleSendFeedback = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please enter your feedback before sending.' });
+        return;
+    }
+    const subject = "ConnectWave App Feedback";
+    const body = feedbackMessage;
+    const mailtoLink = `mailto:praful.khuman@ics-global.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+    setIsOpen(false);
+  }
+
   const navigateToContacts = () => {
     router.push('/contacts');
     setIsOpen(false);
@@ -209,12 +226,13 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="profile"><User className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="security"><Lock className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="contacts"><Contact className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="group"><Users className="h-4 w-4" /></TabsTrigger>
             <TabsTrigger value="quick-chat"><MessageSquarePlus className="h-4 w-4" /></TabsTrigger>
+            <TabsTrigger value="feedback"><LifeBuoy className="h-4 w-4" /></TabsTrigger>
           </TabsList>
           
           <TabsContent value="profile" className="py-4 space-y-4">
@@ -297,8 +315,28 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
              </form>
           </TabsContent>
 
+          <TabsContent value="feedback" className="py-4">
+            <h3 className="font-semibold">Send Feedback</h3>
+            <p className="text-sm text-muted-foreground pb-4">Have a suggestion or found a bug? Let us know!</p>
+            <form onSubmit={handleSendFeedback} className="space-y-2">
+                <Label htmlFor="feedback-message">Your Message</Label>
+                <Textarea 
+                    id="feedback-message"
+                    value={feedbackMessage}
+                    onChange={(e) => setFeedbackMessage(e.target.value)}
+                    placeholder="Describe your feedback here..."
+                    rows={5}
+                />
+                <Button type="submit" className="w-full">
+                    Send Feedback
+                </Button>
+            </form>
+          </TabsContent>
+
         </Tabs>
       </DialogContent>
     </Dialog>
   );
 }
+
+    
