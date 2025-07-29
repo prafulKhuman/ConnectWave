@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue, sendFeedback } from '@/lib/firebase';
+import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -177,28 +177,19 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
-  const handleSendFeedback = async (e: React.FormEvent) => {
+  const handleSendFeedback = (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackMessage.trim()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter your feedback before sending.' });
         return;
     }
-    if (!currentUser) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to send feedback.' });
-        return;
-    }
-    setFeedbackLoading(true);
-    try {
-        await sendFeedback(feedbackMessage, currentUser);
-        toast({ title: 'Feedback Sent', description: 'Thank you for your feedback! We will review it shortly.' });
-        setFeedbackMessage('');
-        setIsOpen(false);
-    } catch (error) {
-        console.error("Feedback error:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to send feedback. Please try again later.' });
-    } finally {
-        setFeedbackLoading(false);
-    }
+    const subject = "ConnectWave App Feedback";
+    const body = `Feedback from: ${currentUser.name} (${currentUser.email})\n\n${feedbackMessage}`;
+    const mailtoLink = `mailto:praful.khuman@ics-global.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+    setFeedbackMessage('');
+    setIsOpen(false);
+    toast({ title: 'Redirecting to Email Client', description: 'Please send the feedback from your email application.' });
   }
 
   const navigateToContacts = () => {

@@ -601,21 +601,6 @@ const onTypingStatusChange = (chatId: string, callback: (typingStatus: any) => v
     });
 };
 
-const sendFeedback = async (feedbackMessage: string, fromUser: Contact) => {
-    const mailCollection = collection(db, 'mail');
-    await addDoc(mailCollection, {
-        to: ['praful.khuman@ics-global.in'],
-        message: {
-            subject: 'ConnectWave App Feedback',
-            html: `
-                <p><b>From:</b> ${fromUser.name} (${fromUser.email})</p>
-                <p><b>Message:</b></p>
-                <p>${feedbackMessage}</p>
-            `,
-        }
-    });
-};
-
 
 export { 
     app, 
@@ -659,6 +644,5 @@ export {
     onUserStatusChange,
     togglePinChat,
     setUserTypingStatus,
-    onTypingStatusChange,
-    sendFeedback
+    onTypingStatusChange
 };
