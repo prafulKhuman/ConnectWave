@@ -1,13 +1,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Phone, Mic, MicOff, Video, VideoOff, PhoneOff, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Phone, Mic, MicOff, Video, VideoOff, PhoneOff, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserAvatar } from './user-avatar';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+
 
 type CallViewProps = {
   callType: 'audio' | 'video';
@@ -23,6 +25,41 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
   const [callDuration, setCallDuration] = useState(0);
+  const [hasCameraPermission, setHasCameraPermission] = useState(false);
+
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (callType === 'video') {
+        const getCameraPermission = async () => {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+            setHasCameraPermission(true);
+
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = stream;
+            }
+            if (remoteVideoRef.current) {
+                // In a real app, this would be the remote stream
+                remoteVideoRef.current.srcObject = stream;
+            }
+          } catch (error) {
+            console.error('Error accessing camera:', error);
+            setHasCameraPermission(false);
+            toast({
+              variant: 'destructive',
+              title: 'Camera Access Denied',
+              description: 'Please enable camera permissions in your browser settings to use this app.',
+            });
+          }
+        };
+        getCameraPermission();
+    }
+  }, [callType, toast]);
+  
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -48,35 +85,21 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
     onEndCall();
   };
 
+  const showVideo = callType === 'video' && callStatus === 'connected' && !isVideoOff;
+
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
       <Card className="w-full max-w-md mx-4 shadow-2xl overflow-hidden">
         <div className={cn(
             "relative h-full w-full bg-cover bg-center transition-all duration-300",
-            (callType === 'video' && callStatus === 'connected' && !isVideoOff) ? '' : 'p-6'
+            showVideo ? '' : 'p-6'
         )}>
             {/* Background Image/Video */}
-            {callType === 'video' && callStatus === 'connected' && !isVideoOff ? (
+            {showVideo ? (
                 <>
-                    <Image 
-                        src="https://placehold.co/400x600.png"
-                        alt="Remote video feed"
-                        data-ai-hint="video call remote person"
-                        layout="fill"
-                        objectFit="cover"
-                        className="transition-opacity duration-500"
-                        unoptimized
-                    />
+                    <video ref={remoteVideoRef} autoPlay playsInline className="absolute top-0 left-0 h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-black/30" />
-                    <Image
-                        src="https://placehold.co/100x150.png"
-                        alt="Local video feed"
-                        data-ai-hint="video call local person"
-                        width={100}
-                        height={150}
-                        className="absolute bottom-4 right-4 rounded-lg border-2 border-white/50 shadow-lg"
-                        unoptimized
-                    />
+                    <video ref={localVideoRef} autoPlay muted playsInline className="absolute bottom-4 right-4 h-40 w-28 rounded-lg border-2 border-white/50 object-cover shadow-lg" />
                      <Button variant="ghost" size="icon" onClick={onEndCall} className="absolute top-4 left-4 text-white hover:bg-white/20">
                         <ArrowLeft />
                     </Button>
@@ -86,17 +109,30 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
             )}
 
             <CardContent className="relative z-10 flex flex-col items-center justify-between h-full text-center text-foreground pt-6">
-                <div className="flex flex-col items-center space-y-4">
-                    <UserAvatar user={caller} className="h-32 w-32 border-4 border-background shadow-lg" />
-                    <h2 className="text-3xl font-bold">{caller.name}</h2>
-                    <p className="text-lg text-muted-foreground">
-                        {callStatus === 'ringing'
-                        ? callType === 'video' ? 'Incoming video call...' : 'Incoming audio call...'
-                        : formatDuration(callDuration)}
-                    </p>
-                </div>
+                {!showVideo && (
+                    <div className="flex flex-col items-center space-y-4">
+                        <UserAvatar user={caller} className="h-32 w-32 border-4 border-background shadow-lg" />
+                        <h2 className="text-3xl font-bold">{caller.name}</h2>
+                        <p className="text-lg text-muted-foreground">
+                            {callStatus === 'ringing'
+                            ? callType === 'video' ? 'Incoming video call...' : 'Incoming audio call...'
+                            : formatDuration(callDuration)}
+                        </p>
+                    </div>
+                )}
+                
+                {showVideo && !hasCameraPermission && (
+                    <Alert variant="destructive" className="mt-20 bg-destructive/80 text-destructive-foreground border-destructive/80">
+                        <AlertTriangle className="h-4 w-4 !text-destructive-foreground" />
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                            Please allow camera access to use this feature.
+                        </AlertDescription>
+                    </Alert>
+                )}
 
-                <div className="w-full mt-16 space-y-6">
+
+                <div className={cn("w-full space-y-6", showVideo ? 'absolute bottom-6 left-0 px-6' : 'mt-16')}>
                     {callStatus === 'ringing' ? (
                         <div className="flex justify-around">
                             <div className="flex flex-col items-center space-y-2">
