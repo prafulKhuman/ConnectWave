@@ -206,13 +206,17 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
                 const sender = participantsMap.get(msgData.senderId);
-                const content = msgData.type === 'image' ? '📷 Photo' : msgData.content;
+                let content = msgData.content;
+                if (msgData.type === 'image') {
+                    content = '📷 Photo';
+                }
                 return { 
                     id: msgDoc.id,
                     content: content,
                     timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                     sender: sender!,
                     type: msgData.type || 'text',
+                    edited: msgData.edited || false
                 } as Message;
             });
 
@@ -245,6 +249,7 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
                 content: data.content,
                 timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                 type: data.type || 'text',
+                edited: data.edited || false,
             } as Message;
         });
         callback(messages);
@@ -444,6 +449,19 @@ const deleteContact = async (userId: string, contactId: string) => {
     await deleteDoc(contactRef);
 };
 
+const deleteMessage = async (chatId: string, messageId: string) => {
+    const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+    await deleteDoc(messageRef);
+};
+
+const updateMessage = async (chatId: string, messageId: string, newContent: string) => {
+    const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+    await updateDoc(messageRef, {
+        content: newContent,
+        edited: true,
+    });
+};
+
 
 export { 
     app, 
@@ -478,7 +496,11 @@ export {
     uploadImageForChat,
     hashValue,
     compareValue,
-    reauthenticateUser
+    reauthenticateUser,
+    deleteMessage,
+    updateMessage,
 };
+
+    
 
     

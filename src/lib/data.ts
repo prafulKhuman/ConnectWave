@@ -16,6 +16,7 @@ export type Message = {
   content: string;
   timestamp: string;
   type?: 'text' | 'image';
+  edited?: boolean;
 };
 
 export type Chat = {
@@ -31,3 +32,5 @@ export type Chat = {
     by: string; // userId of who initiated the block
   };
 };
+
+    

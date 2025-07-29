@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,11 +32,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadImageForChat } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadImageForChat, deleteMessage, updateMessage } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import type { EmojiClickData } from 'emoji-picker-react';
+import { Textarea } from '@/components/ui/textarea';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -61,6 +62,12 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const [blockUserLoading, setBlockUserLoading] = React.useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = React.useState(false);
 
+  const [editingMessageId, setEditingMessageId] = React.useState<string | null>(null);
+  const [editingContent, setEditingContent] = React.useState('');
+  const [deletingMessageId, setDeletingMessageId] = React.useState<string | null>(null);
+  const [messageActionLoading, setMessageActionLoading] = React.useState(false);
+
+
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -72,7 +79,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   
   React.useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, editingMessageId]);
 
   const scrollToBottom = () => {
     if (scrollViewportRef.current) {
@@ -100,6 +107,13 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && selectedChat) {
       const file = e.target.files[0];
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast({ variant: "destructive", title: "Invalid File Type", description: "Please select an image file." });
+        return;
+      }
+      
       setLoading(true);
       toast({ title: "Uploading...", description: "Your image is being sent." });
       try {
@@ -157,6 +171,44 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     setIsEmojiPickerOpen(false);
     messageInputRef.current?.focus();
   };
+
+  const handleEditMessage = (message: Message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  }
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedChat || !editingMessageId || !editingContent.trim()) return;
+    setMessageActionLoading(true);
+    try {
+        await updateMessage(selectedChat.id, editingMessageId, editingContent.trim());
+        toast({ title: "Message Updated" });
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to update message." });
+    } finally {
+        setMessageActionLoading(false);
+        handleCancelEdit();
+    }
+  }
+
+  const handleDeleteMessage = async () => {
+    if (!selectedChat || !deletingMessageId) return;
+    setMessageActionLoading(true);
+    try {
+        await deleteMessage(selectedChat.id, deletingMessageId);
+        toast({ title: "Message Deleted" });
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete message." });
+    } finally {
+        setMessageActionLoading(false);
+        setDeletingMessageId(null);
+    }
+  }
   
   if (!selectedChat || !currentUser) {
     return (
@@ -247,14 +299,32 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
           className="h-full"
           viewportRef={scrollViewportRef}
         >
-          <div className="p-4 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-1">
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={cn('flex animate-in fade-in-25 slide-in-from-bottom-4 duration-300',
+                className={cn('group flex items-end gap-2 animate-in fade-in-25 slide-in-from-bottom-4 duration-300',
                   message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
                 )}
               >
+                 {message.sender?.id === currentUser.id && (
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onSelect={() => handleEditMessage(message)} disabled={message.type === 'image'}>
+                                <PenSquare className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setDeletingMessageId(message.id)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                 )}
+
                 <div
                   className={cn('max-w-xs md:max-w-md lg:max-w-lg rounded-xl px-4 py-2.5',
                     message.sender?.id === currentUser.id
@@ -267,17 +337,41 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                     <p className="text-xs font-semibold text-primary pb-1">{message.sender.name}</p>
                   )}
                   
-                  {message.type === 'image' ? (
-                     <a href={message.content} target="_blank" rel="noopener noreferrer">
-                        <img src={message.content} alt="Sent image" data-ai-hint="sent image" className="rounded-lg max-w-[200px] h-auto cursor-pointer" />
-                     </a>
+                  {editingMessageId === message.id ? (
+                    <div className="space-y-2">
+                      <Textarea 
+                        value={editingContent}
+                        onChange={(e) => setEditingContent(e.target.value)}
+                        className="bg-background/80 text-foreground"
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancel</Button>
+                        <Button size="sm" onClick={handleSaveEdit} disabled={messageActionLoading}>
+                          {messageActionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : "Save"}
+                        </Button>
+                      </div>
+                    </div>
                   ) : (
-                    <p className="text-sm">{message.content}</p>
-                  )}
+                    <>
+                      {message.type === 'image' ? (
+                        <a href={message.content} target="_blank" rel="noopener noreferrer">
+                            <img src={message.content} alt="Sent image" data-ai-hint="sent image" className="rounded-lg max-w-[200px] h-auto cursor-pointer" />
+                        </a>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      )}
 
-                  <p className="mt-1 text-right text-xs text-muted-foreground/80">
-                    {message.timestamp}
-                  </p>
+                      <div className="flex items-end justify-end gap-2 mt-1">
+                        {message.edited && (
+                            <p className="text-xs text-muted-foreground/80">edited</p>
+                        )}
+                        <p className="text-xs text-muted-foreground/80">
+                            {message.timestamp}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -370,6 +464,27 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+       <AlertDialog open={!!deletingMessageId} onOpenChange={(open) => !open && setDeletingMessageId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will permanently delete this message. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={messageActionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteMessage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={messageActionLoading}>
+              {messageActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
+
+    
