@@ -190,7 +190,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
 
     setFeedbackLoading(true);
     try {
-      const result = await sendFeedbackEmail(currentUser.email, feedbackMessage);
+      const result = await sendFeedbackEmail(currentUser, feedbackMessage);
       if (result.success) {
         toast({ title: 'Feedback Sent!', description: 'Thank you for your message.' });
         setFeedbackMessage('');
