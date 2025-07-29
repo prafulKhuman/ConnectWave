@@ -189,18 +189,18 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
             toast({title: "Message Edited"});
             setEditingMessage(null);
             setEditContent('');
+            setTimeout(() => messageInputRef.current?.focus(), 0);
         } catch(e) {
             toast({ variant: 'destructive', title: "Error", description: "Failed to edit message." });
         } finally {
             setIsSending(false);
-            messageInputRef.current?.focus();
         }
     } else {
         setIsSending(true);
         try {
             await sendMessageInChat(selectedChat.id, currentUser.id, newMessage, 'text');
             setNewMessage('');
-            messageInputRef.current?.focus();
+            setTimeout(() => messageInputRef.current?.focus(), 0);
         } catch (error) {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
         } finally {
@@ -619,3 +619,5 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     </div>
   );
 }
+
+    
