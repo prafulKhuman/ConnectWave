@@ -12,7 +12,7 @@ import { NewGroupDialog } from './new-group-dialog';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { auth, clearChatHistory, deleteChat } from '@/lib/firebase';
+import { auth, clearChatHistory, deleteChat, onUserStatusChange } from '@/lib/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,9 +45,43 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
   const [loading, setLoading] = React.useState(false);
   const [dialogState, setDialogState] = React.useState<{ clearChatId?: string; deleteChatId?: string }>({});
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [localChats, setLocalChats] = React.useState<Chat[]>(chats);
 
   const router = useRouter();
   const { toast } = useToast();
+
+  React.useEffect(() => {
+    setLocalChats(chats);
+
+    const unsubscribers = chats.flatMap(chat => {
+      if (chat.type === 'direct') {
+        const otherParticipant = chat.participants.find(p => p.id !== currentUser.id);
+        if (otherParticipant) {
+          return [onUserStatusChange(otherParticipant.id, (status) => {
+            setLocalChats(prevChats => {
+              return prevChats.map(c => {
+                if (c.id === chat.id) {
+                  const updatedParticipants = c.participants.map(p => {
+                    if (p.id === otherParticipant.id) {
+                      return { ...p, online: status.state === 'online', lastSeen: new Date(status.last_changed) };
+                    }
+                    return p;
+                  });
+                  return { ...c, participants: updatedParticipants };
+                }
+                return c;
+              });
+            });
+          })];
+        }
+      }
+      return [];
+    });
+
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [chats, currentUser.id]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -104,7 +138,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
     return { name: otherParticipant?.name, avatar: otherParticipant?.avatar, online: otherParticipant?.online };
   };
 
-  const filteredChats = chats.filter((chat) => {
+  const filteredChats = localChats.filter((chat) => {
     const details = getChatDetails(chat);
     return details.name?.toLowerCase().includes(searchTerm.toLowerCase());
   });

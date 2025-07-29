@@ -47,49 +47,56 @@ export default function Home() {
   const { toast } = useToast();
 
   React.useEffect(() => {
+    let unsubscribeAuth: (() => void) | undefined;
     let unsubscribeChats: (() => void) | undefined;
+    let unsubscribePresence: (() => void) | undefined;
 
-    const unsubscribeAuth = onAuthUserChanged(async (authUser) => {
-      if (authUser) {
-        setUser(authUser);
-        manageUserPresence(authUser.uid);
-        const userProfile = await getCurrentUser(authUser.uid);
-        setCurrentUser(userProfile);
+    const cleanup = () => {
+        if (unsubscribeAuth) unsubscribeAuth();
+        if (unsubscribeChats) unsubscribeChats();
+        if (unsubscribePresence) unsubscribePresence();
+    };
 
-        if (userProfile?.pin) {
-          setIsPinModalOpen(true);
-          setLoading(false);
-        } else if (userProfile) {
-          setLoading(true);
-          unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
-            setChats(newChats);
-            if (newChats.length > 0 && !selectedChat) {
-                const sortedChats = [...newChats].sort((a, b) => {
-                    const aTimestamp = a.messages[0]?.timestamp || "0";
-                    const bTimestamp = b.messages[0]?.timestamp || "0";
-                    return bTimestamp.localeCompare(aTimestamp);
+    unsubscribeAuth = onAuthUserChanged(async (authUser) => {
+        // Clean up previous listeners
+        if (unsubscribeChats) unsubscribeChats();
+        if (unsubscribePresence) unsubscribePresence();
+
+        if (authUser) {
+            setUser(authUser);
+            unsubscribePresence = manageUserPresence(authUser.uid);
+            const userProfile = await getCurrentUser(authUser.uid);
+            setCurrentUser(userProfile);
+
+            if (userProfile?.pin) {
+                setIsPinModalOpen(true);
+                setLoading(false);
+            } else if (userProfile) {
+                setLoading(true);
+                unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
+                    setChats(newChats);
+                    if (newChats.length > 0 && !selectedChat) {
+                        const sortedChats = [...newChats].sort((a, b) => {
+                            const aTimestamp = a.messages[0]?.timestamp || "0";
+                            const bTimestamp = b.messages[0]?.timestamp || "0";
+                            return bTimestamp.localeCompare(aTimestamp);
+                        });
+                        setSelectedChat(sortedChats[0]);
+                    }
+                    setLoading(false);
                 });
-                setSelectedChat(sortedChats[0]);
+            } else {
+                router.push('/login');
             }
-            setLoading(false);
-          });
         } else {
-          router.push('/login');
+            setUser(null);
+            setCurrentUser(null);
+            setLoading(false);
+            router.push('/login');
         }
-      } else {
-        setUser(null);
-        setCurrentUser(null);
-        setLoading(false);
-        router.push('/login');
-      }
     });
 
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribeChats) {
-        unsubscribeChats();
-      }
-    };
+    return cleanup;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 

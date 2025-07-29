@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, onUserStatusChange } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -73,6 +73,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const [editingContent, setEditingContent] = React.useState('');
   const [deletingMessageId, setDeletingMessageId] = React.useState<string | null>(null);
   const [messageActionLoading, setMessageActionLoading] = React.useState(false);
+  const [otherParticipant, setOtherParticipant] = React.useState<Contact | undefined>(undefined);
 
 
   const { toast } = useToast();
@@ -82,9 +83,27 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
       setLoading(true);
       const unsubscribe = getMessagesForChat(selectedChat.id, setMessages, selectedChat.participants);
       setLoading(false);
+
+      const participant = selectedChat.participants.find((p) => p.id !== currentUser.id);
+      setOtherParticipant(participant);
+
+      if (participant && selectedChat.type === 'direct') {
+        const unsubStatus = onUserStatusChange(participant.id, (status) => {
+          setOtherParticipant(prev => ({
+            ...prev!,
+            online: status.state === 'online',
+            lastSeen: new Date(status.last_changed)
+          }));
+        });
+        return () => {
+          unsubscribe();
+          unsubStatus();
+        }
+      }
+
       return () => unsubscribe();
     }
-  }, [selectedChat]);
+  }, [selectedChat, currentUser.id]);
   
   React.useEffect(() => {
     scrollToBottom();
@@ -280,17 +299,18 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     );
   }
 
-  const otherParticipant = selectedChat.participants.find((p) => p.id !== currentUser.id);
-
   const getStatus = (contact: Contact | undefined): string => {
     if (!contact) return '';
     if (contact.online) return 'Online';
     if (contact.lastSeen) {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      if (contact.lastSeen > fiveMinutesAgo) {
-        return 'Online';
+      const now = new Date();
+      const lastSeenDate = new Date(contact.lastSeen);
+      const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
+
+      if (diffInMinutes < 2) {
+          return 'Online'
       }
-      return `Last seen ${formatDistanceToNow(contact.lastSeen, { addSuffix: true })}`;
+      return `Last seen ${formatDistanceToNow(lastSeenDate, { addSuffix: true })}`;
     }
     return 'Offline';
   };

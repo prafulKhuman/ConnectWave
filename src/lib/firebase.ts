@@ -21,7 +21,7 @@ import {
     limit,
     documentId
 } from "firebase/firestore";
-import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp, goOffline, goOnline } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { v4 as uuidv4 } from 'uuid';
 import type { Contact, Chat, Message } from './data';
@@ -159,7 +159,6 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
 
     const participantsMap = new Map<string, Contact>();
     
-    // Chunk participant IDs to avoid 'in' query limit of 30
     const participantChunks: string[][] = [];
     for (let i = 0; i < allParticipantIds.length; i += 30) {
         participantChunks.push(allParticipantIds.slice(i, i + 30));
@@ -176,95 +175,67 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
         });
     }));
 
-    const statusListeners = new Map<string, () => void>();
+    const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
+        const chatData = chatDoc.data();
+        
+        const participants = chatData.participantIds
+            .map((id: string) => participantsMap.get(id))
+            .filter(Boolean) as Contact[];
 
-    // Set up presence listeners for all participants
-    participantsMap.forEach(participant => {
-        const userStatusRef = rtdbRef(rtdb, 'status/' + participant.id);
-        const listener = onValue(userStatusRef, (snapshot) => {
-            const status = snapshot.val();
-            if (status) {
-                const p = participantsMap.get(participant.id);
-                if (p) {
-                    p.online = status.state === 'online';
-                    if (status.state === 'offline') {
-                        p.lastSeen = new Date(status.last_changed);
-                    }
-                }
+        const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
+        const messagesSnapshot = await getDocs(messagesQuery);
+        
+        const messages = messagesSnapshot.docs.map(msgDoc => {
+            const msgData = msgDoc.data();
+            const sender = participantsMap.get(msgData.senderId);
+            let contentPreview = msgData.content;
+            
+            switch (msgData.type) {
+                case 'image':
+                    contentPreview = `📷 ${msgData.fileName || 'Image'}`;
+                    break;
+                case 'video':
+                    contentPreview = `📹 ${msgData.fileName || 'Video'}`;
+                    break;
+                case 'audio':
+                    contentPreview = `🎵 ${msgData.fileName || 'Audio'}`;
+                    break;
+                case 'file':
+                    contentPreview = `📄 ${msgData.fileName || 'File'}`;
+                    break;
+                default: // text
+                    contentPreview = msgData.content;
             }
-            processChats(); // Re-process chats on status change
+
+            return { 
+                id: msgDoc.id,
+                content: contentPreview,
+                timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
+                sender: sender!,
+                type: msgData.type || 'text',
+                edited: msgData.edited || false,
+                fileName: msgData.fileName
+            } as Message;
         });
-        statusListeners.set(participant.id, listener);
+
+        return {
+            id: chatDoc.id,
+            ...chatData,
+            participants,
+            messages,
+        } as Chat;
+    });
+    
+    const chats = (await Promise.all(chatPromises)).sort((a, b) => {
+        const aTimestamp = a.messages[0]?.timestamp || "0";
+        const bTimestamp = b.messages[0]?.timestamp || "0";
+        return bTimestamp.localeCompare(aTimestamp);
     });
 
-    const processChats = async () => {
-        const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
-            const chatData = chatDoc.data();
-            
-            const participants = chatData.participantIds
-                .map((id: string) => participantsMap.get(id))
-                .filter(Boolean) as Contact[];
-
-            const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"), limit(1));
-            const messagesSnapshot = await getDocs(messagesQuery);
-            
-            const messages = messagesSnapshot.docs.map(msgDoc => {
-                const msgData = msgDoc.data();
-                const sender = participantsMap.get(msgData.senderId);
-                let contentPreview = msgData.content;
-                
-                switch (msgData.type) {
-                    case 'image':
-                        contentPreview = `📷 ${msgData.fileName || 'Image'}`;
-                        break;
-                    case 'video':
-                        contentPreview = `📹 ${msgData.fileName || 'Video'}`;
-                        break;
-                    case 'audio':
-                        contentPreview = `🎵 ${msgData.fileName || 'Audio'}`;
-                        break;
-                    case 'file':
-                        contentPreview = `📄 ${msgData.fileName || 'File'}`;
-                        break;
-                    default: // text
-                        contentPreview = msgData.content;
-                }
-
-                return { 
-                    id: msgDoc.id,
-                    content: contentPreview,
-                    timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
-                    sender: sender!,
-                    type: msgData.type || 'text',
-                    edited: msgData.edited || false,
-                    fileName: msgData.fileName
-                } as Message;
-            });
-
-            return {
-                id: chatDoc.id,
-                ...chatData,
-                participants,
-                messages,
-            } as Chat;
-        });
-        
-        const chats = (await Promise.all(chatPromises)).sort((a, b) => {
-            const aTimestamp = a.messages[0]?.timestamp || "0";
-            const bTimestamp = b.messages[0]?.timestamp || "0";
-            return bTimestamp.localeCompare(aTimestamp);
-        });
-        callback(chats);
-    }
-    
-    await processChats();
-
-    // Return a function to clean up all listeners
-    return () => {
-        unsubscribe();
-        statusListeners.forEach(listener => listener());
-    };
+    callback(chats);
   });
+
+  return unsubscribe;
 };
 
 const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, initialParticipants: Contact[]) => {
@@ -428,16 +399,18 @@ const manageUserPresence = (userId: string) => {
     if (typeof window === 'undefined' || !userId) {
         return;
     }
-
-    const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
     
-    onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
+    const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
+    const userFirestoreRef = doc(db, 'users', userId);
+
+    goOnline(rtdb);
+
+    const con = rtdbRef(rtdb, '.info/connected');
+    
+    const unsubscribe = onValue(con, (snapshot) => {
         if (snapshot.val() === false) {
-            // Instead of returning, we might want to set the user offline
-            // However, the onDisconnect handler should take care of this.
-            // Let's ensure the Firestore 'lastSeen' is updated too.
-            const userDocRef = doc(db, "users", userId);
-            updateDoc(userDocRef, {
+            updateDoc(userFirestoreRef, {
+                online: false,
                 lastSeen: serverTimestamp()
             });
             return;
@@ -451,12 +424,25 @@ const manageUserPresence = (userId: string) => {
                 state: 'online',
                 last_changed: rtdbServerTimestamp(),
             });
-            // Also update Firestore to reflect online status
-            const userDocRef = doc(db, "users", userId);
-            updateDoc(userDocRef, {
+            updateDoc(userFirestoreRef, {
                 online: true
             });
         });
+    });
+
+    return () => {
+        unsubscribe();
+        goOffline(rtdb);
+    }
+};
+
+const onUserStatusChange = (userId: string, callback: (status: any) => void) => {
+    const userStatusRef = rtdbRef(rtdb, '/status/' + userId);
+    return onValue(userStatusRef, (snapshot) => {
+        const status = snapshot.val();
+        if (status) {
+            callback(status);
+        }
     });
 };
 
@@ -551,4 +537,5 @@ export {
     reauthenticateUser,
     deleteMessage,
     updateMessage,
+    onUserStatusChange
 };
