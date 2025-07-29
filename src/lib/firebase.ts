@@ -604,7 +604,7 @@ const onTypingStatusChange = (chatId: string, callback: (typingStatus: any) => v
 const sendFeedback = async (feedbackMessage: string, fromUser: Contact) => {
     const mailCollection = collection(db, 'mail');
     await addDoc(mailCollection, {
-        to: 'praful.khuman@ics-global.in',
+        to: ['praful.khuman@ics-global.in'],
         message: {
             subject: 'ConnectWave App Feedback',
             html: `
