@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Film, Sticker } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -38,8 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Textarea } from '@/components/ui/textarea';
-import { GiphyPicker } from './giphy-picker';
-import type { IGif } from '@giphy/react-components';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -89,6 +87,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const [otherParticipant, setOtherParticipant] = React.useState<Contact | undefined>(undefined);
   const [typingUsers, setTypingUsers] = React.useState<string[]>([]);
   const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -106,17 +106,34 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       return () => unsubscribe();
     }
   }, [selectedChat, currentUser.id]);
+  
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 1;
+    const isScrolledUp = scrollHeight - clientHeight > 200 && scrollTop < scrollHeight - clientHeight - 200;
+    setShowScrollToBottom(isScrolledUp && !isAtBottom);
+  };
+  
+  const scrollToBottom = () => {
+    if (scrollViewportRef.current) {
+      scrollViewportRef.current.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
 
   React.useEffect(() => {
     if (scrollViewportRef.current) {
+        // A small delay to allow the DOM to update before scrolling
       setTimeout(() => {
-        scrollViewportRef.current!.scrollTo({ top: scrollViewportRef.current!.scrollHeight, behavior: 'smooth' });
+        if (scrollViewportRef.current) {
+            scrollViewportRef.current.scrollTo({ top: scrollViewportRef.current.scrollHeight, behavior: 'auto' });
+        }
       }, 100);
     }
-  }, [messages]);
+  }, [messages, selectedChat]);
 
   React.useEffect(() => {
-     if (!selectedChat || !isTabVisible) return;
+     if (!selectedChat || !isTabVisible || !messages.length) return;
         const incomingMessagesToUpdate = messages
             .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read')
             .map(m => m.id);
@@ -239,19 +256,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       setEditContent(prev => prev + emojiData.emoji);
     } else {
       setNewMessage(prev => prev + emojiData.emoji);
-    }
-  };
-
-  const onGiphySelect = async (gif: IGif) => {
-    if (!selectedChat) return;
-    setIsSending(true);
-    try {
-        const url = gif.images.original.url;
-        await sendMessageInChat(selectedChat.id, currentUser.id, url, 'image', gif.title || 'giphy.gif');
-    } catch (error) {
-        toast({ variant: 'destructive', title: "Error", description: "Failed to send GIF." });
-    } finally {
-        setIsSending(false);
     }
   };
 
@@ -461,8 +465,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         </div>
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
-      <div className="flex-1 flex flex-col overflow-y-hidden">
-        <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <ScrollArea className="flex-1" viewportRef={scrollViewportRef} onScroll={handleScroll}>
           <div className="p-4 space-y-4">
             {messages.map((message) => (
               <div
@@ -525,6 +529,15 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             ))}
           </div>
         </ScrollArea>
+        {showScrollToBottom && (
+          <Button
+            size="icon"
+            className="absolute bottom-4 right-4 rounded-full"
+            onClick={scrollToBottom}
+          >
+            <ChevronDown className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
@@ -551,28 +564,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                     </PopoverTrigger>
                     <PopoverContent className="w-auto border-0 p-0 mb-2">
                         <EmojiPicker onEmojiClick={onEmojiClick} />
-                    </PopoverContent>
-                </Popover>
-
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
-                            <Sticker className="h-5 w-5" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto border-0 p-0 mb-2">
-                        <GiphyPicker onSelect={onGiphySelect} type="sticker" />
-                    </PopoverContent>
-                </Popover>
-
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
-                            <Film className="h-5 w-5" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto border-0 p-0 mb-2">
-                         <GiphyPicker onSelect={onGiphySelect} type="gif" />
                     </PopoverContent>
                 </Popover>
                 
