@@ -24,6 +24,8 @@ import { KeyRound, Loader2, Lock, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { goOffline, goOnline } from 'firebase/database';
+import { rtdb } from '@/lib/firebase';
 
 export default function Home() {
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -99,6 +101,40 @@ export default function Home() {
     return cleanup;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  React.useEffect(() => {
+    let inactivityTimer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+        clearTimeout(inactivityTimer);
+        goOnline(rtdb); // User is active, set status to online
+        inactivityTimer = setTimeout(() => {
+            goOffline(rtdb); // User is inactive, set status to offline
+        }, 5 * 60 * 1000); // 5 minutes
+    };
+
+    const handleActivity = () => {
+        resetTimer();
+    };
+
+    // Add event listeners for user activity
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+
+    // Initial timer setup
+    resetTimer();
+
+    return () => {
+        // Cleanup event listeners and timer
+        clearTimeout(inactivityTimer);
+        window.removeEventListener('mousemove', handleActivity);
+        window.removeEventListener('keydown', handleActivity);
+        window.removeEventListener('click', handleActivity);
+        window.removeEventListener('scroll', handleActivity);
+    };
+  }, []);
 
 
   const handlePinSubmit = async (e: React.FormEvent) => {

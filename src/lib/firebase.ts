@@ -416,14 +416,17 @@ const manageUserPresence = (userId: string) => {
             return;
         }
 
-        onDisconnect(userStatusDatabaseRef).set({
+        const offlineStatus = {
             state: 'offline',
             last_changed: rtdbServerTimestamp(),
-        }).then(() => {
-            rtdbSet(userStatusDatabaseRef, {
+        };
+
+        onDisconnect(userStatusDatabaseRef).set(offlineStatus).then(() => {
+            const onlineStatus = {
                 state: 'online',
                 last_changed: rtdbServerTimestamp(),
-            });
+            };
+            rtdbSet(userStatusDatabaseRef, onlineStatus);
             updateDoc(userFirestoreRef, {
                 online: true
             });
@@ -442,6 +445,14 @@ const onUserStatusChange = (userId: string, callback: (status: any) => void) => 
         const status = snapshot.val();
         if (status) {
             callback(status);
+        } else {
+            // Handle case where status is null (user logs out/disconnects)
+            getDoc(doc(db, 'users', userId)).then(userDoc => {
+                if (userDoc.exists()) {
+                    const lastSeen = userDoc.data().lastSeen;
+                    callback({ state: 'offline', last_changed: lastSeen?.toMillis() || Date.now() });
+                }
+            });
         }
     });
 };
@@ -505,6 +516,7 @@ export {
     app, 
     auth, 
     db,
+    rtdb,
     setupRecaptcha, 
     onAuthUserChanged, 
     createUserWithEmailAndPassword, 

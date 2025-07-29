@@ -313,14 +313,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     if (!contact) return '';
     if (contact.online) return 'Online';
     if (contact.lastSeen) {
-      const now = new Date();
-      const lastSeenDate = new Date(contact.lastSeen);
-      const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
-
-      if (diffInMinutes < 2) {
-          return 'Online'
-      }
-      return `Last seen ${formatDistanceToNow(lastSeenDate, { addSuffix: true })}`;
+        return `Last seen ${formatDistanceToNow(new Date(contact.lastSeen), { addSuffix: true })}`;
     }
     return 'Offline';
   };
