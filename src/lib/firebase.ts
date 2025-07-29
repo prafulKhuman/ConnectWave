@@ -19,7 +19,9 @@ import {
     writeBatch,
     Timestamp,
     limit,
-    documentId
+    documentId,
+    arrayUnion,
+    arrayRemove
 } from "firebase/firestore";
 import { getDatabase, ref as rtdbRef, set as rtdbSet, onValue, onDisconnect, serverTimestamp as rtdbServerTimestamp, goOffline, goOnline } from 'firebase/database';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -538,6 +540,13 @@ const updateMessage = async (chatId: string, messageId: string, newContent: stri
     });
 };
 
+const togglePinChat = async (chatId: string, userId: string, isPinned: boolean) => {
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+        pinnedBy: isPinned ? arrayRemove(userId) : arrayUnion(userId)
+    });
+};
+
 
 export { 
     app, 
@@ -577,7 +586,6 @@ export {
     reauthenticateUser,
     deleteMessage,
     updateMessage,
-    onUserStatusChange
+    onUserStatusChange,
+    togglePinChat
 };
-
-    

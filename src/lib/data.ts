@@ -29,6 +29,7 @@ export type Chat = {
   messages: Message[];
   name?: string; // For group chats
   avatar?: string; // For group chats
+  pinnedBy?: string[];
   blocked?: {
     isBlocked: boolean;
     by: string; // userId of who initiated the block

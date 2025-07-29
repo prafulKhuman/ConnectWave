@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { Search, LogOut, Settings, MoreVertical, Trash2, MessageSquareX, Loader2 } from 'lucide-react';
+import { Search, LogOut, Settings, MoreVertical, Trash2, MessageSquareX, Loader2, Pin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,7 @@ import { NewGroupDialog } from './new-group-dialog';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
-import { auth, clearChatHistory, deleteChat, onUserStatusChange } from '@/lib/firebase';
+import { auth, clearChatHistory, deleteChat, onUserStatusChange, togglePinChat } from '@/lib/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,7 +139,33 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
     return { name: otherParticipant?.name, avatar: otherParticipant?.avatar, online: otherParticipant?.online };
   };
 
-  const filteredChats = localChats.filter((chat) => {
+  const sortedChats = React.useMemo(() => {
+    return [...localChats].sort((a, b) => {
+      const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
+      const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
+
+      if (isAPinned !== isBPinned) {
+        return isAPinned ? -1 : 1;
+      }
+      
+      const timeA = a.messages[0]?.timestamp || "0";
+      const timeB = b.messages[0]?.timestamp || "0";
+      
+      return timeB.localeCompare(timeA);
+    });
+  }, [localChats, currentUser.id]);
+
+  const handleTogglePin = async (e: React.MouseEvent, chatId: string, isPinned: boolean) => {
+    e.stopPropagation(); // Prevent chat selection
+    try {
+        await togglePinChat(chatId, currentUser.id, isPinned);
+        toast({ title: isPinned ? 'Chat unpinned' : 'Chat pinned' });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not update pin status.' });
+    }
+  };
+
+  const filteredChats = sortedChats.filter((chat) => {
     const details = getChatDetails(chat);
     return details.name?.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -198,6 +224,7 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
             {filteredChats.map((chat) => {
               const details = getChatDetails(chat);
               const lastMessage = chat.messages[0];
+              const isPinned = chat.pinnedBy?.includes(currentUser.id) || false;
 
               return (
                 <li key={chat.id} className="relative group">
@@ -224,12 +251,18 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
                           {lastMessage?.timestamp}
                         </time>
                       </div>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {lastMessage?.content || 'No messages yet.'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        {isPinned && <Pin className="h-4 w-4 text-muted-foreground flex-shrink-0" />}
+                        <p className="truncate text-sm text-muted-foreground">
+                            {lastMessage?.content || 'No messages yet.'}
+                        </p>
+                      </div>
                     </div>
                   </button>
-                   <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleTogglePin(e, chat.id, isPinned)}>
+                        <Pin className={cn("h-4 w-4", isPinned ? 'fill-foreground' : '')} />
+                    </Button>
                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
