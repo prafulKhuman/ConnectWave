@@ -32,6 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, onUserStatusChange, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
@@ -555,5 +556,3 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     </div>
   );
 }
-
-    
