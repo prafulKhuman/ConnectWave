@@ -22,7 +22,6 @@ import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
 import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '../ui/textarea';
+import { sendFeedbackEmail } from '@/lib/actions';
 
 
 type SettingsDialogProps = {
@@ -177,19 +177,32 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     }
   };
 
-  const handleSendFeedback = (e: React.FormEvent) => {
+  const handleSendFeedback = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackMessage.trim()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter your feedback before sending.' });
         return;
     }
-    const subject = "ConnectWave App Feedback";
-    const body = `Feedback from: ${currentUser.name} (${currentUser.email})\n\n${feedbackMessage}`;
-    const mailtoLink = `mailto:praful.khuman@ics-global.in?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoLink;
-    setFeedbackMessage('');
-    setIsOpen(false);
-    toast({ title: 'Redirecting to Email Client', description: 'Please send the feedback from your email application.' });
+    if (!currentUser?.email) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not identify your user email.' });
+        return;
+    }
+
+    setFeedbackLoading(true);
+    try {
+      const result = await sendFeedbackEmail(currentUser.email, feedbackMessage);
+      if (result.success) {
+        toast({ title: 'Feedback Sent!', description: 'Thank you for your message.' });
+        setFeedbackMessage('');
+        setIsOpen(false);
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error Sending Feedback', description: 'Could not send feedback. Please try again later.' });
+    } finally {
+        setFeedbackLoading(false);
+    }
   }
 
   const navigateToContacts = () => {
