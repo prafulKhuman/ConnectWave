@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { Chat, Message, Contact } from '@/lib/data';
@@ -16,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Popover,
@@ -34,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, onUserStatusChange, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -57,7 +55,7 @@ type ConversationViewProps = {
   isTabVisible: boolean;
 };
 
-const MessageStatus = ({ status }: { status: Message['status'] }) => {
+const MessageStatus = ({ status }: { status?: Message['status'] }) => {
     if (status === 'sent') {
         return <Check className="h-4 w-4" />;
     }
@@ -99,7 +97,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       const otherUser = selectedChat.participants.find(p => p.id !== currentUser.id);
       setOtherParticipant(otherUser);
       
-      const unsubscribe = getMessagesForChat(selectedChat.id, setMessages, selectedChat.participants);
+      const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages, participantsMap) => {
+        setMessages(newMessages);
+      });
+      
       return () => unsubscribe();
     }
   }, [selectedChat, currentUser.id]);
@@ -142,24 +143,28 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     if (!selectedChat) return { name: '', avatar: '', online: false, lastSeen: undefined, status: '' };
     if (selectedChat.type === 'group') {
       const onlineCount = selectedChat.participants.filter(p => p.online).length;
+      let status = `${onlineCount} of ${selectedChat.participants.length} online`;
+      if(typingUsers.length > 0) {
+        status = `${typingUsers.join(', ')} typing...`
+      }
       return { 
         name: selectedChat.name, 
         avatar: selectedChat.avatar, 
         online: false, 
         lastSeen: undefined, 
-        status: `${onlineCount} of ${selectedChat.participants.length} online`
+        status
       };
     }
-    const otherParticipant = selectedChat.participants.find((p) => p.id !== currentUser.id);
-    let status = otherParticipant?.online ? 'Online' : (otherParticipant?.lastSeen ? `Last seen ${formatDistanceToNow(new Date(otherParticipant.lastSeen), { addSuffix: true })}` : 'Offline');
+    const otherUser = selectedChat.participants.find((p) => p.id !== currentUser.id);
+    let status = otherUser?.online ? 'Online' : (otherUser?.lastSeen ? `Last seen ${formatDistanceToNow(new Date(otherUser.lastSeen), { addSuffix: true })}` : 'Offline');
     if (typingUsers.length > 0) {
         status = 'typing...';
     }
     return { 
-      name: otherParticipant?.name, 
-      avatar: otherParticipant?.avatar, 
-      online: otherParticipant?.online, 
-      lastSeen: otherParticipant?.lastSeen, 
+      name: otherUser?.name, 
+      avatar: otherUser?.avatar, 
+      online: otherUser?.online, 
+      lastSeen: otherUser?.lastSeen, 
       status 
     };
   };
@@ -180,15 +185,13 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             toast({ variant: 'destructive', title: "Error", description: "Failed to edit message." });
         } finally {
             setIsSending(false);
+            messageInputRef.current?.focus();
         }
     } else {
         setIsSending(true);
         try {
             await sendMessageInChat(selectedChat.id, currentUser.id, newMessage, 'text');
             setNewMessage('');
-            if (messageInputRef.current) {
-              messageInputRef.current.focus();
-            }
         } catch (error) {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
         } finally {
@@ -196,6 +199,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             if (selectedChat) {
                 setUserTypingStatus(selectedChat.id, currentUser.id, currentUser.name, false);
             }
+            messageInputRef.current?.focus();
         }
     }
   };
@@ -439,7 +443,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={selectedChat.participants.find(p => p.id !== currentUser.id)} />
+        {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
 
       <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
@@ -449,13 +453,13 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
               key={message.id}
               className={cn(
                 'flex items-end gap-2 group',
-                message.sender.id === currentUser.id ? 'justify-end' : 'justify-start'
+                message.sender?.id === currentUser.id ? 'justify-end' : 'justify-start'
               )}
             >
               <div
                 className={cn(
                   'relative max-w-xs md:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
-                  message.sender.id === currentUser.id
+                  message.sender?.id === currentUser.id
                     ? 'bg-primary/80 text-primary-foreground'
                     : 'bg-card'
                 )}
@@ -464,10 +468,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                 <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
                     {message.edited && <span>Edited</span>}
                     <time>{message.timestamp}</time>
-                    {message.sender.id === currentUser.id && <MessageStatus status={message.status} />}
+                    {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
                 </div>
 
-                {message.sender.id === currentUser.id && (
+                {message.sender?.id === currentUser.id && (
                      <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>

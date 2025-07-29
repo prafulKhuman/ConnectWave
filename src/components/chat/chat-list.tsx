@@ -52,14 +52,14 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
   const { toast } = useToast();
 
   React.useEffect(() => {
-    if (!currentUser) return; // Add guard clause
     setLocalChats(chats);
 
-    const unsubscribers = chats.flatMap(chat => {
+    const unsubscribers: (()=>void)[] = [];
+    chats.forEach(chat => {
       if (chat.type === 'direct') {
         const otherParticipant = chat.participants.find(p => p.id !== currentUser.id);
         if (otherParticipant) {
-          return [onUserStatusChange(otherParticipant.id, (status) => {
+          const unsub = onUserStatusChange(otherParticipant.id, (status) => {
             setLocalChats(prevChats => {
               return prevChats.map(c => {
                 if (c.id === chat.id) {
@@ -74,16 +74,16 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
                 return c;
               });
             });
-          })];
+          });
+          unsubscribers.push(unsub);
         }
       }
-      return [];
     });
 
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [chats, currentUser]);
+  }, [chats, currentUser.id]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -149,10 +149,10 @@ export function ChatList({ chats, selectedChat, setSelectedChat, currentUser }: 
         return isAPinned ? -1 : 1;
       }
       
-      const timeA = a.messages[0]?.timestamp || "0";
-      const timeB = b.messages[0]?.timestamp || "0";
+      const timeA = a.messages[0]?.timestamp_raw || 0;
+      const timeB = b.messages[0]?.timestamp_raw || 0;
       
-      return timeB.localeCompare(timeA);
+      return timeB - timeA;
     });
   }, [localChats, currentUser.id]);
 

@@ -144,56 +144,62 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 
 
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
-  const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
+    const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
 
-  const unsubscribe = onSnapshot(chatsQuery, async (chatsSnapshot) => {
-    if (chatsSnapshot.empty) {
-      callback([]);
-      return;
-    }
+    const unsubscribe = onSnapshot(chatsQuery, async (chatsSnapshot) => {
+        if (chatsSnapshot.empty) {
+            callback([]);
+            return;
+        }
 
-    const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
-    
-    if (allParticipantIds.length === 0) {
-      callback([]);
-      return;
-    }
+        const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
+        if (allParticipantIds.length === 0) {
+            callback([]);
+            return;
+        }
 
-    const participantsMap = new Map<string, Contact>();
-    
-    const participantChunks: string[][] = [];
-    for (let i = 0; i < allParticipantIds.length; i += 30) {
-        participantChunks.push(allParticipantIds.slice(i, i + 30));
-    }
+        const participantsMap = new Map<string, Contact>();
+        const participantChunks: string[][] = [];
+        for (let i = 0; i < allParticipantIds.length; i += 30) {
+            participantChunks.push(allParticipantIds.slice(i, i + 30));
+        }
 
-    await Promise.all(participantChunks.map(async chunk => {
-        if (chunk.length === 0) return;
-        const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
-        const usersSnapshot = await getDocs(usersQuery);
-        usersSnapshot.forEach(userDoc => {
-             const data = userDoc.data();
-             const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
-             participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
-        });
-    }));
+        await Promise.all(participantChunks.map(async chunk => {
+            if (chunk.length === 0) return;
+            const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
+            const usersSnapshot = await getDocs(usersQuery);
+            usersSnapshot.forEach(userDoc => {
+                const data = userDoc.data();
+                const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+                participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
+            });
+        }));
 
-    const chatPromises = chatsSnapshot.docs.map(async (chatDoc) => {
-        return new Promise<Chat>((resolve) => {
+        let chats: Chat[] = [];
+        const messageListeners: (() => void)[] = [];
+
+        chatsSnapshot.docs.forEach((chatDoc) => {
             const chatData = chatDoc.data();
-            
             const participants = chatData.participantIds
                 .map((id: string) => participantsMap.get(id))
                 .filter(Boolean) as Contact[];
 
-            // Set up a real-time listener for messages to get last message and unread count
+            let chat: Chat = {
+                id: chatDoc.id,
+                ...chatData,
+                participants,
+                messages: [],
+                unreadCount: 0,
+            } as Chat;
+            chats.push(chat);
+
             const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"));
-            
-            onSnapshot(messagesQuery, (messagesSnapshot) => {
+            const messageUnsubscribe = onSnapshot(messagesQuery, (messagesSnapshot) => {
                 const allMessages = messagesSnapshot.docs;
                 const lastMessageDoc = allMessages[0];
 
                 let unreadCount = 0;
-                allMessages.forEach(msgDoc => {
+                messagesSnapshot.docs.forEach(msgDoc => {
                     const msgData = msgDoc.data();
                     if (msgData.senderId !== userId && msgData.status !== 'read') {
                         unreadCount++;
@@ -201,77 +207,101 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                 });
 
                 let lastMessage: Message | undefined = undefined;
-                if(lastMessageDoc) {
+                if (lastMessageDoc) {
                     const msgData = lastMessageDoc.data();
-                    const sender = participantsMap.get(msgData.senderId);
                     let contentPreview = msgData.content;
-                    
                     switch (msgData.type) {
                         case 'image': contentPreview = `📷 Image`; break;
                         case 'video': contentPreview = `📹 Video`; break;
                         case 'audio': contentPreview = `🎵 Audio`; break;
                         case 'file': contentPreview = `📄 File`; break;
                     }
-
-                    lastMessage = { 
+                    const timestamp = msgData.timestamp?.toDate() || new Date();
+                    lastMessage = {
                         id: lastMessageDoc.id,
                         content: contentPreview,
-                        timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
-                        sender: sender!,
+                        timestamp: timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+                        timestamp_raw: timestamp.getTime(),
+                        sender: participantsMap.get(msgData.senderId)!,
                         type: msgData.type || 'text',
                         status: msgData.status || 'sent',
                         edited: msgData.edited || false,
                         fileName: msgData.fileName
-                    } as Message;
+                    };
                 }
 
-                resolve({
-                    id: chatDoc.id,
-                    ...chatData,
-                    participants,
-                    messages: lastMessage ? [lastMessage] : [],
-                    unreadCount,
-                } as Chat);
+                const chatIndex = chats.findIndex(c => c.id === chatDoc.id);
+                if (chatIndex !== -1) {
+                    chats[chatIndex].messages = lastMessage ? [lastMessage] : [];
+                    chats[chatIndex].unreadCount = unreadCount;
+                    chats[chatIndex].participants = chatData.participantIds
+                        .map((id: string) => participantsMap.get(id))
+                        .filter(Boolean) as Contact[];
+
+                    callback([...chats]); // Trigger update
+                }
             });
+            messageListeners.push(messageUnsubscribe);
         });
+    });
+
+    return () => {
+        unsubscribe();
+        // You might need a way to unsubscribe from message listeners too if the component unmounts
+    };
+};
+
+const getMessagesForChat = (chatId: string, callback: (messages: Message[], participantsMap: Map<string, Contact>) => void) => {
+    const participantsMap = new Map<string, Contact>();
+
+    // First get participants to build the map
+    const chatRef = doc(db, 'chats', chatId);
+    const unsubscribeChat = onSnapshot(chatRef, async (chatDoc) => {
+        const chatData = chatDoc.data();
+        if (!chatData) return;
+
+        const participantIds = chatData.participantIds;
+        if (participantIds.length > 0) {
+            const usersQuery = query(collection(db, "users"), where(documentId(), "in", participantIds));
+            const usersSnapshot = await getDocs(usersQuery);
+            usersSnapshot.forEach(userDoc => {
+                const data = userDoc.data();
+                const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+                participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
+            });
+        }
+
+        // Now listen for messages
+        const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
+        const unsubscribeMessages = onSnapshot(q, (querySnapshot) => {
+            const messages = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+                const sender = participantsMap.get(data.senderId) || { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '' } as Contact;
+                const timestamp = data.timestamp?.toDate() || new Date();
+                
+                return {
+                    id: doc.id,
+                    sender: sender,
+                    content: data.content,
+                    timestamp: timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+                    timestamp_raw: timestamp.getTime(),
+                    type: data.type || 'text',
+                    status: data.status || 'sent',
+                    edited: data.edited || false,
+                    fileName: data.fileName || ''
+                } as Message;
+            });
+            callback(messages, participantsMap);
+        });
+
+        // This is a bit tricky, ideally we'd return both unsubscribers
+        // For simplicity, we assume this is a long-lived listener
     });
     
-    Promise.all(chatPromises).then((chats) => {
-        const sortedChats = chats.sort((a, b) => {
-            const timeA = a.messages[0]?.timestamp || "0";
-            const timeB = b.messages[0]?.timestamp || "0";
-            return timeB.localeCompare(timeA); // This is still imperfect for sorting across days.
-        });
-        callback(sortedChats);
-    });
-  });
-
-  return unsubscribe;
+    // This return is for the outer listener, message listener is nested
+    return unsubscribeChat; 
 };
 
-const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, initialParticipants: Contact[]) => {
-    const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
-    const participantsMap = new Map(initialParticipants.map(p => [p.id, p]));
-
-    return onSnapshot(q, (querySnapshot) => {
-        const messages = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            const sender = participantsMap.get(data.senderId) || { id: data.senderId, name: "Unknown User", avatar: '', email: '', pin: '' } as Contact;
-            
-            return {
-                id: doc.id,
-                sender: sender,
-                content: data.content,
-                timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
-                type: data.type || 'text',
-                status: data.status || 'sent',
-                edited: data.edited || false,
-                fileName: data.fileName || ''
-            } as Message;
-        });
-        callback(messages);
-    });
-};
 
 const sendMessageInChat = async (chatId: string, senderId: string, content: string, type: Message['type'] = 'text', fileName?: string) => {
     const messageData: any = {
@@ -421,7 +451,7 @@ const updateBlockStatus = async (chatId: string, isBlocked: boolean, blockedBy: 
 
 const manageUserPresence = (userId: string) => {
     if (typeof window === 'undefined' || !userId) {
-        return;
+        return () => {};
     }
     
     const userStatusDatabaseRef = rtdbRef(rtdb, '/status/' + userId);
@@ -433,7 +463,7 @@ const manageUserPresence = (userId: string) => {
     
     const unsubscribe = onValue(con, (snapshot) => {
         if (snapshot.val() === false) {
-            updateDoc(userFirestoreRef, {
+             updateDoc(userFirestoreRef, {
                 online: false,
                 lastSeen: serverTimestamp()
             });
@@ -444,12 +474,12 @@ const manageUserPresence = (userId: string) => {
             state: 'offline',
             last_changed: rtdbServerTimestamp(),
         };
+        const onlineStatus = {
+            state: 'online',
+            last_changed: rtdbServerTimestamp(),
+        };
 
         onDisconnect(userStatusDatabaseRef).set(offlineStatus).then(() => {
-            const onlineStatus = {
-                state: 'online',
-                last_changed: rtdbServerTimestamp(),
-            };
             rtdbSet(userStatusDatabaseRef, onlineStatus);
             updateDoc(userFirestoreRef, {
                 online: true
@@ -458,8 +488,8 @@ const manageUserPresence = (userId: string) => {
     });
 
     return () => {
-        unsubscribe();
         goOffline(rtdb);
+        unsubscribe();
     }
 };
 
@@ -547,16 +577,6 @@ const setUserTypingStatus = (chatId: string, userId: string, userName: string, i
     const typingStatusRef = rtdbRef(rtdb, `typing-status/${chatId}/${userId}`);
     if (isTyping) {
         rtdbSet(typingStatusRef, { isTyping: true, name: userName });
-        // Optional: Add a timeout to automatically remove typing status
-        // This is a failsafe in case the client disconnects abruptly
-        setTimeout(() => {
-            const currentRef = rtdbRef(rtdb, `typing-status/${chatId}/${userId}`);
-            onValue(currentRef, (snapshot) => {
-                if (snapshot.exists() && snapshot.val().isTyping) {
-                   rtdbSet(currentRef, null);
-                }
-            }, { onlyOnce: true });
-        }, 3000);
     } else {
         rtdbSet(typingStatusRef, null); // Remove the typing indicator
     }

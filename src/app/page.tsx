@@ -52,15 +52,17 @@ export default function Home() {
 
    React.useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setIsTabVisible(true);
-      } else {
-        setIsTabVisible(false);
+      if (typeof document !== 'undefined') {
+        setIsTabVisible(document.visibilityState === 'visible');
       }
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, []);
 
@@ -112,9 +114,13 @@ export default function Home() {
                     setChats(newChats);
                     if (newChats.length > 0 && !selectedChat) {
                         const sortedChats = [...newChats].sort((a, b) => {
-                            const aTimestamp = a.messages[0]?.timestamp || "0";
-                            const bTimestamp = b.messages[0]?.timestamp || "0";
-                            return bTimestamp.localeCompare(aTimestamp);
+                             const isAPinned = a.pinnedBy?.includes(userProfile.id) || false;
+                             const isBPinned = b.pinnedBy?.includes(userProfile.id) || false;
+                             if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
+
+                             const timeA = a.messages[0]?.timestamp_raw || 0;
+                             const timeB = b.messages[0]?.timestamp_raw || 0;
+                             return timeB - timeA;
                         });
                         setSelectedChat(sortedChats[0]);
                     } else if (selectedChat) {
@@ -207,9 +213,13 @@ export default function Home() {
         setChats(newChats);
          if (newChats.length > 0 && !selectedChat) {
             const sortedChats = [...newChats].sort((a, b) => {
-                const aTimestamp = a.messages[0]?.timestamp || "0";
-                const bTimestamp = b.messages[0]?.timestamp || "0";
-                return bTimestamp.localeCompare(aTimestamp);
+                const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
+                const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
+                if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
+
+                const timeA = a.messages[0]?.timestamp_raw || 0;
+                const timeB = b.messages[0]?.timestamp_raw || 0;
+                return timeB - timeA;
             });
             setSelectedChat(sortedChats[0]);
         }
@@ -256,9 +266,13 @@ export default function Home() {
           setChats(newChats);
            if (newChats.length > 0 && !selectedChat) {
               const sortedChats = [...newChats].sort((a, b) => {
-                  const aTimestamp = a.messages[0]?.timestamp || "0";
-                  const bTimestamp = b.messages[0]?.timestamp || "0";
-                  return bTimestamp.localeCompare(aTimestamp);
+                  const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
+                  const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
+                  if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
+
+                  const timeA = a.messages[0]?.timestamp_raw || 0;
+                  const timeB = b.messages[0]?.timestamp_raw || 0;
+                  return timeB - timeA;
               });
               setSelectedChat(sortedChats[0]);
           }
@@ -400,5 +414,3 @@ export default function Home() {
     </main>
   );
 }
-
-    

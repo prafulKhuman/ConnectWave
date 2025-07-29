@@ -15,6 +15,7 @@ export type Message = {
   sender: Contact;
   content: string; // URL for files, text for text messages
   timestamp: string;
+  timestamp_raw: number; // for sorting
   type: 'text' | 'image' | 'video' | 'audio' | 'file';
   status: 'sent' | 'delivered' | 'read';
   edited?: boolean;
