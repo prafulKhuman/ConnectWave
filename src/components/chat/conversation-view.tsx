@@ -192,6 +192,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         try {
             await sendMessageInChat(selectedChat.id, currentUser.id, newMessage, 'text');
             setNewMessage('');
+            messageInputRef.current?.focus();
         } catch (error) {
             toast({ variant: 'destructive', title: "Error", description: "Failed to send message." });
         } finally {
@@ -199,7 +200,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             if (selectedChat) {
                 setUserTypingStatus(selectedChat.id, currentUser.id, currentUser.name, false);
             }
-            messageInputRef.current?.focus();
         }
     }
   };
@@ -446,8 +446,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         </div>
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
-      <div className="flex-1 relative">
-        <ScrollArea className="absolute inset-0" viewportRef={scrollViewportRef}>
+      <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
           <div className="p-4 space-y-4">
             {messages.map((message) => (
               <div
@@ -563,3 +563,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   );
 }
 
+
+
+    
