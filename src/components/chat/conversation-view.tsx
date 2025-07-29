@@ -610,9 +610,18 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                         </PopoverContent>
                     </Popover>
                     
-                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsCameraOpen(true)} disabled={isSending || isUploading}>
-                        <Camera className="h-5 w-5" />
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                           <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
+                             <Camera className="h-5 w-5" />
+                           </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                           <p>This feature is coming soon! We're hard at work bringing this to you.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                 </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
