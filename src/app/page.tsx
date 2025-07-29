@@ -90,7 +90,6 @@ export default function Home() {
     };
 
     unsubscribeAuth = onAuthUserChanged(async (authUser) => {
-        // Clean up previous listeners
         if (unsubscribeChats) unsubscribeChats();
         if (unsubscribePresence) unsubscribePresence();
 
@@ -110,46 +109,55 @@ export default function Home() {
                 setLoading(false);
             } else {
                 setLoading(true);
-                unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
-                    setChats(newChats);
-                    
-                    if (selectedChat) {
-                        // If a chat is already selected, find the updated version of it and set it.
-                        const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
-                        if (updatedSelectedChat) {
-                            setSelectedChat(updatedSelectedChat);
-                        } else {
-                            // The selected chat was deleted, so unselect it.
-                            setSelectedChat(null);
-                        }
-                    } else if (newChats.length > 0) {
-                         // If no chat is selected, select the one with the most recent message.
-                        const sortedChats = [...newChats].sort((a, b) => {
-                             const isAPinned = a.pinnedBy?.includes(userProfile.id) || false;
-                             const isBPinned = b.pinnedBy?.includes(userProfile.id) || false;
-                             if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
-
-                             const timeA = a.messages[0]?.timestamp_raw || 0;
-                             const timeB = b.messages[0]?.timestamp_raw || 0;
-                             return timeB - timeA;
-                        });
-                        setSelectedChat(sortedChats[0]);
-                    }
-                    
-                    setLoading(false);
-                });
+                unsubscribeChats = getChatsForUser(userProfile.id, setChats);
             }
         } else {
             setUser(null);
             setCurrentUser(null);
+            setChats([]);
+            setSelectedChat(null);
             setLoading(false);
             router.push('/login');
         }
     });
 
     return cleanup;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // Effect to manage selected chat based on chats array
+  React.useEffect(() => {
+    if (loading && chats.length > 0) {
+        setLoading(false);
+    }
+
+    if (!currentUser) return;
+
+    if (selectedChat) {
+        // If a chat is already selected, find its updated version in the new chats array
+        const updatedSelectedChat = chats.find(c => c.id === selectedChat.id);
+        if (updatedSelectedChat) {
+            // Update the selected chat state with the new data, but don't change the selection
+            setSelectedChat(updatedSelectedChat);
+        } else {
+            // The selected chat was deleted or is no longer available, so unselect it
+            setSelectedChat(null);
+        }
+    } else if (chats.length > 0) {
+        // If no chat is selected and we have chats, select the one with the most recent message.
+        const sortedChats = [...chats].sort((a, b) => {
+            const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
+            const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
+            if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
+
+            const timeA = a.messages[0]?.timestamp_raw || 0;
+            const timeB = b.messages[0]?.timestamp_raw || 0;
+            return timeB - timeA;
+        });
+        setSelectedChat(sortedChats[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chats, currentUser]);
+
 
   const isAppLocked = isPinModalOpen || isForgotPinModalOpen;
 
@@ -387,3 +395,5 @@ export default function Home() {
     </main>
   );
 }
+
+    
