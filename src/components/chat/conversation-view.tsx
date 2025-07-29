@@ -152,7 +152,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         avatar: selectedChat.avatar, 
         online: false, 
         lastSeen: undefined, 
-        status
+        status 
       };
     }
     const otherUser = selectedChat.participants.find((p) => p.id !== currentUser.id);

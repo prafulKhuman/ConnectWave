@@ -67,18 +67,6 @@ export default function Home() {
   }, []);
 
   React.useEffect(() => {
-    if (isTabVisible && selectedChat && currentUser) {
-      const incomingMessagesToUpdate = selectedChat.messages
-        .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read')
-        .map(m => m.id);
-
-      if (incomingMessagesToUpdate.length > 0) {
-        updateMessagesStatus(selectedChat.id, incomingMessagesToUpdate, 'read');
-      }
-    }
-  }, [isTabVisible, selectedChat, currentUser]);
-
-  React.useEffect(() => {
     let unsubscribeAuth: (() => void) | undefined;
     let unsubscribeChats: (() => void) | undefined;
     let unsubscribePresence: (() => void) | undefined;
@@ -109,7 +97,10 @@ export default function Home() {
                 setLoading(false);
             } else {
                 setLoading(true);
-                unsubscribeChats = getChatsForUser(userProfile.id, setChats);
+                unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
+                    setChats(newChats);
+                    if (loading) setLoading(false);
+                });
             }
         } else {
             setUser(null);
@@ -126,10 +117,6 @@ export default function Home() {
 
   // Effect to manage selected chat based on chats array
   React.useEffect(() => {
-    if (loading && chats.length > 0) {
-        setLoading(false);
-    }
-
     if (!currentUser) return;
 
     if (selectedChat) {
@@ -223,6 +210,10 @@ export default function Home() {
       toast({ title: "Access Granted", description: "Welcome back!" });
       setIsPinModalOpen(false);
       setLoading(true); // Will be turned off by chat listener
+      getChatsForUser(currentUser.id, (newChats) => {
+        setChats(newChats);
+        if (loading) setLoading(false);
+      });
     } else {
       toast({ variant: 'destructive', title: "Invalid PIN", description: "The PIN you entered is incorrect." });
       setPinLoading(false);
@@ -259,6 +250,10 @@ export default function Home() {
         setIsPinModalOpen(false); // Close forgot pin, and also close the main pin modal
         
         setLoading(true); // Will be turned off by chat listener
+        getChatsForUser(currentUser.id, (newChats) => {
+            setChats(newChats);
+            if (loading) setLoading(false);
+        });
 
     } catch (error: any) {
         let errorMessage = 'Failed to reset PIN. Please try again.';
@@ -395,5 +390,3 @@ export default function Home() {
     </main>
   );
 }
-
-    
