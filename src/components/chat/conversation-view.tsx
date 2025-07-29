@@ -49,6 +49,8 @@ type ConversationViewProps = {
 export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
   const scrollViewportRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const messageInputRef = React.useRef<HTMLInputElement>(null);
+
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -90,6 +92,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         toast({ variant: "destructive", title: "Error", description: "Failed to send message."});
       } finally {
         setLoading(false);
+        messageInputRef.current?.focus();
       }
     }
   };
@@ -152,6 +155,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   const onEmojiClick = (emojiData: EmojiClickData) => {
     setNewMessage(prev => prev + emojiData.emoji);
     setIsEmojiPickerOpen(false);
+    messageInputRef.current?.focus();
   };
   
   if (!selectedChat) {
@@ -302,6 +306,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
             </Button>
 
             <Input
+              ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
