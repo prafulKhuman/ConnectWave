@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact } from '@/lib/data';
 
 type NewGroupDialogProps = {
-  currentUser: Contact;
+  currentUser: Contact | null;
   isTriggerInDialog?: boolean;
 };
 
@@ -36,12 +36,12 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
   const { toast } = useToast();
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentUser) {
       // Use getContacts to only show users who have been added to the contact list
       const unsubscribe = getContacts(currentUser.id, setAvailableContacts);
       return () => unsubscribe();
     }
-  }, [isOpen, currentUser.id]);
+  }, [isOpen, currentUser]);
 
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts((prev) =>
@@ -52,7 +52,7 @@ export function NewGroupDialog({ currentUser, isTriggerInDialog = false }: NewGr
   };
 
   const handleCreateGroup = async () => {
-    if (groupName.trim() && selectedContacts.length > 0) {
+    if (groupName.trim() && selectedContacts.length > 0 && currentUser) {
       setLoading(true);
       try {
         const participantIds = [...selectedContacts, currentUser.id];
