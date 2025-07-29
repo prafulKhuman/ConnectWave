@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Film, Sticker } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -38,6 +38,8 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Textarea } from '@/components/ui/textarea';
+import { GiphyPicker } from './giphy-picker';
+import type { IGif } from '@giphy/react-components';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -97,7 +99,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       const otherUser = selectedChat.participants.find(p => p.id !== currentUser.id);
       setOtherParticipant(otherUser);
       
-      const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages, participantsMap) => {
+      const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages) => {
         setMessages(newMessages);
       });
       
@@ -237,6 +239,19 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       setEditContent(prev => prev + emojiData.emoji);
     } else {
       setNewMessage(prev => prev + emojiData.emoji);
+    }
+  };
+
+  const onGiphySelect = async (gif: IGif) => {
+    if (!selectedChat) return;
+    setIsSending(true);
+    try {
+        const url = gif.images.original.url;
+        await sendMessageInChat(selectedChat.id, currentUser.id, url, 'image', gif.title || 'giphy.gif');
+    } catch (error) {
+        toast({ variant: 'destructive', title: "Error", description: "Failed to send GIF." });
+    } finally {
+        setIsSending(false);
     }
   };
 
@@ -446,8 +461,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
         </div>
         {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
       </header>
-      <div className="flex-1 overflow-y-auto">
-        <ScrollArea className="h-full" viewportRef={scrollViewportRef}>
+      <div className="flex-1 flex flex-col overflow-y-hidden">
+        <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
           <div className="p-4 space-y-4">
             {messages.map((message) => (
               <div
@@ -527,15 +542,37 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                 <Button variant="ghost" size="icon" onClick={cancelEdit}><X className="h-5 w-5"/></Button>
             </div>
         ) : (
-             <div className="flex items-center gap-2">
+             <div className="flex items-end gap-2">
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
                             <Smile className="h-5 w-5" />
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto border-0 p-0">
+                    <PopoverContent className="w-auto border-0 p-0 mb-2">
                         <EmojiPicker onEmojiClick={onEmojiClick} />
+                    </PopoverContent>
+                </Popover>
+
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
+                            <Sticker className="h-5 w-5" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto border-0 p-0 mb-2">
+                        <GiphyPicker onSelect={onGiphySelect} type="sticker" />
+                    </PopoverContent>
+                </Popover>
+
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" disabled={isSending || isUploading}>
+                            <Film className="h-5 w-5" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto border-0 p-0 mb-2">
+                         <GiphyPicker onSelect={onGiphySelect} type="gif" />
                     </PopoverContent>
                 </Popover>
                 
@@ -562,7 +599,3 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     </div>
   );
 }
-
-
-
-    
