@@ -40,6 +40,7 @@ import type { EmojiClickData } from 'emoji-picker-react';
 import { Textarea } from '@/components/ui/textarea';
 import { CameraView } from './camera-view';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
@@ -406,14 +407,32 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => router.push(`/call-test?type=audio`)}>
-            <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="sr-only">Audio Call</span>
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => router.push(`/call-test?type=video`)}>
-            <Video className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="sr-only">Video Call</span>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" disabled>
+                  <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="sr-only">Audio Call</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>This feature is coming soon! We're hard at work bringing this to you.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+           <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" disabled>
+                  <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="sr-only">Video Call</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>This feature is coming soon! We're hard at work bringing this to you.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
@@ -597,9 +616,18 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                 </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => fileInputRef.current?.click()} disabled={isSending || isUploading}>
-                   {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
+                        {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>This feature is coming soon! We're hard at work bringing this to you.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <Textarea
                     ref={messageInputRef}
                     value={editingMessage ? editContent : newMessage}
@@ -619,5 +647,3 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     </div>
   );
 }
-
-    

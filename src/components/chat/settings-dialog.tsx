@@ -22,6 +22,7 @@ import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
 import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type SettingsDialogProps = {
   currentUser: ContactType;
@@ -193,10 +194,19 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             <div className="flex flex-col items-center space-y-2">
                 <div className="relative">
                     <UserAvatar user={{ ...currentUser, avatar: avatarPreview }} className="h-24 w-24" />
-                    <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted">
-                        <Upload className="h-4 w-4" />
-                    </Label>
-                    <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={profileLoading} />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted" style={{ pointerEvents: 'none' }}>
+                              <Upload className="h-4 w-4" />
+                          </Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>This feature is coming soon! We're hard at work bringing this to you.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled />
                 </div>
             </div>
             <div className="space-y-2">
