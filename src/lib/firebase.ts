@@ -189,9 +189,16 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
         const messagesSnapshot = await getDocs(messagesQuery);
         
         // Get unread count
-        const unreadQuery = query(collection(db, "chats", chatDoc.id, "messages"), where("status", "!=", "read"), where("senderId", "!=", userId));
-        const unreadSnapshot = await getDocs(unreadQuery);
-        const unreadCount = unreadSnapshot.size;
+        const incomingMessagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), where("senderId", "!=", userId));
+        const incomingMessagesSnapshot = await getDocs(incomingMessagesQuery);
+        
+        let unreadCount = 0;
+        incomingMessagesSnapshot.forEach(doc => {
+            if (doc.data().status !== 'read') {
+                unreadCount++;
+            }
+        });
+
 
         const messages = messagesSnapshot.docs.map(msgDoc => {
             const msgData = msgDoc.data();
