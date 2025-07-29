@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Suspense, useState, useMemo } from 'react';
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CallView } from '@/components/chat/call-view';
@@ -18,10 +18,10 @@ function CallTestClient() {
     router.push('/call-test');
   };
 
-  const caller = useMemo(() => ({
+  const caller = {
     name: 'Jane Doe',
     avatar: 'https://placehold.co/100x100.png',
-  }), []);
+  };
 
   if (!callType) {
     return (
