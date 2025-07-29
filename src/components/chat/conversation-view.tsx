@@ -76,6 +76,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const router = useRouter();
 
   const [messages, setMessages] = React.useState<Message[]>([]);
+  const [newMessage, setNewMessage] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [isClearChatAlertOpen, setIsClearChatAlertOpen] = React.useState(false);
   const [isBlockUserAlertOpen, setIsBlockUserAlertOpen] = React.useState(false);
@@ -601,5 +602,3 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     </div>
   );
 }
-
-    
