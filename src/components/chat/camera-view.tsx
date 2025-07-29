@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Camera, Video, Send, X, RefreshCw, Check, Loader2 } from 'lucide-react';
+import { Camera, Video, Send, X, RefreshCw, Loader2, SwitchCamera } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -27,36 +27,50 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
   const [capturedMedia, setCapturedMedia] = useState<string | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string | undefined>(undefined);
+
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const { toast } = useToast();
+
+  const getPermissions = async (deviceId?: string) => {
+    try {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined },
+        audio: true,
+      });
+      setStream(mediaStream);
+      setHasPermission(true);
+      
+      const videoDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      setDevices(videoDevices);
+      if (!deviceId) {
+        setCurrentDeviceId(mediaStream.getVideoTracks()[0].getSettings().deviceId);
+      }
+
+    } catch (err) {
+      console.error('Error accessing camera:', err);
+      setHasPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser.',
+      });
+      onClose();
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
       // Reset state when opening
       setCapturedMedia(null);
       setMediaFile(null);
-      
-      const getPermissions = async () => {
-        try {
-          const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-          });
-          setStream(mediaStream);
-          setHasPermission(true);
-        } catch (err) {
-          console.error('Error accessing camera:', err);
-          setHasPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser.',
-          });
-          onClose();
-        }
-      };
       getPermissions();
     } else {
       // Cleanup when closing
@@ -136,6 +150,15 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
     }
   };
 
+  const handleSwitchCamera = () => {
+    if(devices.length < 2) return;
+    const currentIndex = devices.findIndex(d => d.deviceId === currentDeviceId);
+    const nextIndex = (currentIndex + 1) % devices.length;
+    const nextDevice = devices[nextIndex];
+    setCurrentDeviceId(nextDevice.deviceId);
+    getPermissions(nextDevice.deviceId);
+  }
+
   const handleSend = async () => {
     if (mediaFile) {
         setSending(true);
@@ -172,13 +195,20 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           )}
-           <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-white hover:bg-black/50" onClick={onClose}>
-                <X />
-           </Button>
+           <div className="absolute top-2 right-2 flex gap-2">
+             {devices.length > 1 && (
+                <Button variant="ghost" size="icon" className="text-white hover:bg-black/50" onClick={handleSwitchCamera}>
+                    <SwitchCamera />
+                </Button>
+             )}
+             <Button variant="ghost" size="icon" className="text-white hover:bg-black/50" onClick={onClose}>
+                    <X />
+             </Button>
+           </div>
         </div>
         <div className="p-4 bg-background flex flex-col items-center justify-center space-y-4">
             {capturedMedia ? (
-                 <div className="flex w-full justify-around items-center">
+                 <div className="flex w-full justify-around items-center h-[9.5rem]">
                     <Button variant="outline" size="lg" className="rounded-full w-16 h-16" onClick={resetCapture} disabled={sending}>
                         <RefreshCw className="h-7 w-7"/>
                     </Button>
@@ -196,14 +226,17 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
                            <Video className="mr-2 h-4 w-4"/> Video
                         </Button>
                     </div>
-                    <div className="flex w-full justify-around items-center">
+                    <div className="flex w-full justify-around items-center h-20">
                          <Button
                             size="lg"
-                            className={cn("rounded-full w-20 h-20 border-4 border-white bg-transparent hover:bg-white/20", isRecording && 'bg-red-500 hover:bg-red-600 animate-pulse')}
+                            className={cn(
+                                "rounded-full w-20 h-20 border-4 border-white shadow-lg bg-primary/30 hover:bg-primary/50 transition-all", 
+                                isRecording && 'bg-red-500 hover:bg-red-600 animate-pulse'
+                            )}
                             onClick={handleShutterClick}
                             disabled={!stream}
                         >
-                           <div className="w-16 h-16 rounded-full bg-primary/50" />
+                           <div className={cn("w-16 h-16 rounded-full bg-primary/50", isRecording && 'bg-red-500/80 w-8 h-8' )} />
                         </Button>
                     </div>
                 </>
@@ -213,3 +246,5 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
     </Dialog>
   );
 }
+
+    
