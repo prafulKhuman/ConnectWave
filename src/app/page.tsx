@@ -112,7 +112,10 @@ export default function Home() {
                 setLoading(true);
                 unsubscribeChats = getChatsForUser(userProfile.id, (newChats) => {
                     setChats(newChats);
-                    if (newChats.length > 0 && !selectedChat) {
+                    
+                    const currentSelectedChatExists = newChats.some(c => c.id === selectedChat?.id);
+
+                    if (newChats.length > 0 && (!selectedChat || !currentSelectedChatExists)) {
                         const sortedChats = [...newChats].sort((a, b) => {
                              const isAPinned = a.pinnedBy?.includes(userProfile.id) || false;
                              const isBPinned = b.pinnedBy?.includes(userProfile.id) || false;
@@ -124,7 +127,6 @@ export default function Home() {
                         });
                         setSelectedChat(sortedChats[0]);
                     } else if (selectedChat) {
-                        // Update the selected chat with new messages
                         const updatedSelectedChat = newChats.find(c => c.id === selectedChat.id);
                         if (updatedSelectedChat) {
                             setSelectedChat(updatedSelectedChat);
@@ -208,23 +210,7 @@ export default function Home() {
     if (isPinValid) {
       toast({ title: "Access Granted", description: "Welcome back!" });
       setIsPinModalOpen(false);
-      setLoading(true);
-      const unsubscribeChats = getChatsForUser(currentUser.id, (newChats) => {
-        setChats(newChats);
-         if (newChats.length > 0 && !selectedChat) {
-            const sortedChats = [...newChats].sort((a, b) => {
-                const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
-                const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
-                if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
-
-                const timeA = a.messages[0]?.timestamp_raw || 0;
-                const timeB = b.messages[0]?.timestamp_raw || 0;
-                return timeB - timeA;
-            });
-            setSelectedChat(sortedChats[0]);
-        }
-        setLoading(false);
-      });
+      setLoading(true); // Will be turned off by chat listener
     } else {
       toast({ variant: 'destructive', title: "Invalid PIN", description: "The PIN you entered is incorrect." });
       setPinLoading(false);
@@ -260,24 +246,7 @@ export default function Home() {
         setIsForgotPinModalOpen(false);
         setIsPinModalOpen(false); // Close forgot pin, and also close the main pin modal
         
-        // Now that the pin is reset and modals are closed, load the chats
-        setLoading(true);
-        const unsubscribeChats = getChatsForUser(currentUser.id, (newChats) => {
-          setChats(newChats);
-           if (newChats.length > 0 && !selectedChat) {
-              const sortedChats = [...newChats].sort((a, b) => {
-                  const isAPinned = a.pinnedBy?.includes(currentUser.id) || false;
-                  const isBPinned = b.pinnedBy?.includes(currentUser.id) || false;
-                  if (isAPinned !== isBPinned) return isAPinned ? -1 : 1;
-
-                  const timeA = a.messages[0]?.timestamp_raw || 0;
-                  const timeB = b.messages[0]?.timestamp_raw || 0;
-                  return timeB - timeA;
-              });
-              setSelectedChat(sortedChats[0]);
-          }
-          setLoading(false);
-        });
+        setLoading(true); // Will be turned off by chat listener
 
     } catch (error: any) {
         let errorMessage = 'Failed to reset PIN. Please try again.';

@@ -146,36 +146,31 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
 
+    let chats: Chat[] = [];
+    let participantsMap = new Map<string, Contact>();
+    const messageListeners: (() => void)[] = [];
+
     const unsubscribe = onSnapshot(chatsQuery, async (chatsSnapshot) => {
-        if (chatsSnapshot.empty) {
-            callback([]);
-            return;
-        }
-
+        
         const allParticipantIds = Array.from(new Set(chatsSnapshot.docs.flatMap(d => d.data().participantIds)));
-        if (allParticipantIds.length === 0) {
-            callback([]);
-            return;
+        if (allParticipantIds.length > 0) {
+            const participantChunks: string[][] = [];
+            for (let i = 0; i < allParticipantIds.length; i += 30) {
+                participantChunks.push(allParticipantIds.slice(i, i + 30));
+            }
+            await Promise.all(participantChunks.map(async chunk => {
+                if (chunk.length === 0) return;
+                const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
+                const usersSnapshot = await getDocs(usersQuery);
+                usersSnapshot.forEach(userDoc => {
+                    const data = userDoc.data();
+                    const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
+                    participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
+                });
+            }));
         }
 
-        const participantsMap = new Map<string, Contact>();
-        const participantChunks: string[][] = [];
-        for (let i = 0; i < allParticipantIds.length; i += 30) {
-            participantChunks.push(allParticipantIds.slice(i, i + 30));
-        }
-
-        await Promise.all(participantChunks.map(async chunk => {
-            if (chunk.length === 0) return;
-            const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
-            const usersSnapshot = await getDocs(usersQuery);
-            usersSnapshot.forEach(userDoc => {
-                const data = userDoc.data();
-                const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
-                participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
-            });
-        }));
-
-        let chats: Chat[] = chatsSnapshot.docs.map(chatDoc => {
+        chats = chatsSnapshot.docs.map(chatDoc => {
             const chatData = chatDoc.data();
             const participants = chatData.participantIds
                 .map((id: string) => participantsMap.get(id))
@@ -189,9 +184,16 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             } as Chat;
         });
 
-        const messageListeners: (() => void)[] = [];
+        // Clean up old message listeners
+        messageListeners.forEach(unsub => unsub());
+        messageListeners.length = 0;
 
-        chats.forEach((chat, index) => {
+        if (chats.length === 0) {
+            callback([]);
+            return;
+        }
+
+        chats.forEach((chat) => {
             const messagesQuery = query(
                 collection(db, "chats", chat.id, "messages"),
                 orderBy("timestamp", "desc")
@@ -234,23 +236,24 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                 }
 
                 // Update the specific chat in the array
-                chats[index].messages = lastMessage ? [lastMessage] : [];
-                chats[index].unreadCount = unreadCount;
+                const chatIndex = chats.findIndex(c => c.id === chat.id);
+                if (chatIndex !== -1) {
+                    chats[chatIndex].messages = lastMessage ? [lastMessage] : [];
+                    chats[chatIndex].unreadCount = unreadCount;
+                }
                 
-                // Important: Create a new array to trigger state update in React
                 callback([...chats]);
             });
             messageListeners.push(messageUnsubscribe);
         });
 
-        // The main listener should also return a function to clean up all message listeners
-        return () => {
-            unsubscribe();
-            messageListeners.forEach(unsub => unsub());
-        };
+        callback([...chats]);
     });
 
-    return unsubscribe;
+    return () => {
+        unsubscribe();
+        messageListeners.forEach(unsub => unsub());
+    };
 };
 
 const getMessagesForChat = (chatId: string, callback: (messages: Message[], participantsMap: Map<string, Contact>) => void) => {
@@ -263,7 +266,8 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[], part
         if (!chatData) return;
 
         const participantIds = chatData.participantIds;
-        if (participantIds.length > 0) {
+        
+        if (participantIds && participantIds.length > 0) {
             const usersQuery = query(collection(db, "users"), where(documentId(), "in", participantIds));
             const usersSnapshot = await getDocs(usersQuery);
             usersSnapshot.forEach(userDoc => {
