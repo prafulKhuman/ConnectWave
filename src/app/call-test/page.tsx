@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { CallView } from '@/components/chat/call-view';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft } from 'lucide-react';
 
 function CallTestClient() {
   const searchParams = useSearchParams();
@@ -31,6 +32,9 @@ function CallTestClient() {
             <Button onClick={() => router.push('/call-test?type=audio')}>Simulate Audio Call</Button>
             <Button onClick={() => router.push('/call-test?type=video')}>Simulate Video Call</Button>
         </div>
+         <Button variant="outline" onClick={() => router.push('/')} className="mt-8">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Go Home
+        </Button>
       </div>
     );
   }
