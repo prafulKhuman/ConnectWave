@@ -65,6 +65,7 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
                         layout="fill"
                         objectFit="cover"
                         className="transition-opacity duration-500"
+                        unoptimized
                     />
                     <div className="absolute inset-0 bg-black/30" />
                     <Image
@@ -74,6 +75,7 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
                         width={100}
                         height={150}
                         className="absolute bottom-4 right-4 rounded-lg border-2 border-white/50 shadow-lg"
+                        unoptimized
                     />
                      <Button variant="ghost" size="icon" onClick={onEndCall} className="absolute top-4 left-4 text-white hover:bg-white/20">
                         <ArrowLeft />
@@ -150,5 +152,3 @@ export function CallView({ callType, caller, onEndCall }: CallViewProps) {
     </div>
   );
 }
-
-    
