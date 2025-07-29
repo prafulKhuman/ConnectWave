@@ -153,6 +153,9 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md w-full p-0 gap-0" hideCloseButton>
+        <DialogHeader className="sr-only">
+          <DialogTitle>Camera View</DialogTitle>
+        </DialogHeader>
         <div className="relative aspect-video bg-black rounded-t-lg">
           {capturedMedia ? (
             <>
