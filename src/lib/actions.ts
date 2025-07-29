@@ -13,7 +13,7 @@ export async function sendFeedbackEmail(currentUser: any, message: string) {
             subject: 'ConnectWave App Feedback / Issues',
             html: `
                 <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                    <h2 style="color: #333;">Feedback From</h2>
+                    <h3 style="color: #333;">Feedback From</h3>
                     <p><strong>Name:</strong> ${currentUser.name}</p>
                     <p><strong>Email:</strong> ${currentUser.email}</p>
 
