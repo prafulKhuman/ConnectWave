@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,14 +29,14 @@ type SettingsDialogProps = {
 
 export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [name, setName] = useState(currentUser.name);
+  const [name, setName] = useState(currentUser?.name || '');
   
   const [oldPin, setOldPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
+  const [avatarPreview, setAvatarPreview] = useState(currentUser?.avatar);
   const [quickChatEmail, setQuickChatEmail] = useState('');
   
   const [profileLoading, setProfileLoading] = useState(false);
@@ -45,6 +45,19 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   
   const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Reset state when dialog is closed or user changes
+    if (!isOpen) {
+      setName(currentUser?.name || '');
+      setAvatarPreview(currentUser?.avatar);
+      setAvatarFile(null);
+      setOldPin('');
+      setNewPin('');
+      setConfirmPin('');
+    }
+  }, [isOpen, currentUser]);
+
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -55,6 +68,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   };
   
   const handleProfileUpdate = async () => {
+    if (!currentUser) return;
     setProfileLoading(true);
     let newAvatarUrl = currentUser.avatar;
     if (avatarFile) {
@@ -78,6 +92,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   };
   
   const handlePinChange = async () => {
+    if (!currentUser) return;
     if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
         toast({ variant: 'destructive', title: 'Invalid PIN', description: 'New PIN must be exactly 4 digits.' });
         return;
@@ -117,6 +132,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
 
   const handleQuickChat = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) return;
     if (!quickChatEmail.trim()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Please enter an email address.' });
         return;
@@ -194,9 +210,9 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
           </TabsContent>
           
           <TabsContent value="security" className="py-4 space-y-4">
-             <h3 className="font-semibold">{currentUser.pin ? 'Update App Lock PIN' : 'Set App Lock PIN'}</h3>
+             <h3 className="font-semibold">{currentUser?.pin ? 'Update App Lock PIN' : 'Set App Lock PIN'}</h3>
              
-             {currentUser.pin && (
+             {currentUser?.pin && (
                 <div className="space-y-2">
                     <Label htmlFor="old-pin">Old PIN</Label>
                     <Input id="old-pin" type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} maxLength={4} disabled={pinLoading} />
@@ -213,7 +229,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             </div>
             <Button onClick={handlePinChange} className="w-full" disabled={pinLoading}>
                 {pinLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {pinLoading ? "Saving..." : (currentUser.pin ? 'Update PIN' : 'Set New PIN')}
+                {pinLoading ? "Saving..." : (currentUser?.pin ? 'Update PIN' : 'Set New PIN')}
             </Button>
           </TabsContent>
           
@@ -258,5 +274,3 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     </Dialog>
   );
 }
-
-    
