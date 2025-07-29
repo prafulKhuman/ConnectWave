@@ -13,10 +13,11 @@ export type Contact = {
 export type Message = {
   id: string;
   sender: Contact;
-  content: string;
+  content: string; // URL for files, text for text messages
   timestamp: string;
-  type?: 'text' | 'image';
+  type: 'text' | 'image' | 'video' | 'audio' | 'file';
   edited?: boolean;
+  fileName?: string; // e.g., 'document.pdf'
 };
 
 export type Chat = {
@@ -32,5 +33,3 @@ export type Chat = {
     by: string; // userId of who initiated the block
   };
 };
-
-    

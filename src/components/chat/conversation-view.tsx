@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadImageForChat, deleteMessage, updateMessage } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -41,6 +41,13 @@ import { Textarea } from '@/components/ui/textarea';
 
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'video/mp4', 'video/webm', 'video/ogg',
+    'audio/mpeg', 'audio/ogg', 'audio/wav',
+    'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+];
 
 type ConversationViewProps = {
   selectedChat: Chat | null;
@@ -104,25 +111,33 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0] && selectedChat) {
       const file = e.target.files[0];
 
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast({ variant: "destructive", title: "Invalid File Type", description: "Please select an image file." });
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        toast({ variant: "destructive", title: "Invalid File Type", description: "This file type is not supported." });
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        toast({ variant: "destructive", title: "File Too Large", description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
         return;
       }
       
+      const fileType = file.type.startsWith('image/') ? 'image'
+                     : file.type.startsWith('video/') ? 'video'
+                     : file.type.startsWith('audio/') ? 'audio'
+                     : 'file';
+
       setLoading(true);
-      toast({ title: "Uploading...", description: "Your image is being sent." });
+      toast({ title: "Uploading...", description: `Your ${fileType} is being sent.` });
       try {
-        const imageUrl = await uploadImageForChat(selectedChat.id, file);
-        await sendMessageInChat(selectedChat.id, currentUser.id, imageUrl, 'image');
-        toast({ title: "Image Sent", description: "Your image has been sent successfully." });
+        const fileUrl = await uploadFileForChat(selectedChat.id, file, fileType);
+        await sendMessageInChat(selectedChat.id, currentUser.id, fileUrl, fileType, file.name);
+        toast({ title: "File Sent", description: `Your ${fileType} has been sent successfully.` });
       } catch (error) {
-        console.error("Error sending image: ", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to send image." });
+        console.error("Error sending file: ", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to send file." });
       } finally {
         setLoading(false);
         if (fileInputRef.current) {
@@ -207,6 +222,42 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     } finally {
         setMessageActionLoading(false);
         setDeletingMessageId(null);
+    }
+  }
+
+  const renderMessageContent = (message: Message) => {
+    switch (message.type) {
+        case 'image':
+            return (
+                <a href={message.content} target="_blank" rel="noopener noreferrer">
+                    <img src={message.content} alt={message.fileName || 'Sent image'} data-ai-hint="sent image" className="rounded-lg max-w-[200px] h-auto cursor-pointer" />
+                </a>
+            );
+        case 'video':
+            return (
+                <video controls src={message.content} className="rounded-lg max-w-[300px] h-auto">
+                    Your browser does not support the video tag.
+                </video>
+            );
+        case 'audio':
+            return (
+                 <audio controls src={message.content} className="w-full max-w-xs">
+                    Your browser does not support the audio element.
+                </audio>
+            );
+        case 'file':
+            return (
+                <a href={message.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-background/50 p-3 rounded-lg hover:bg-background/80">
+                    <FileIcon className="h-8 w-8 text-muted-foreground" />
+                    <div>
+                        <p className="text-sm font-medium">{message.fileName}</p>
+                        <p className="text-xs text-muted-foreground">Click to download</p>
+                    </div>
+                </a>
+            );
+        case 'text':
+        default:
+            return <p className="text-sm whitespace-pre-wrap">{message.content}</p>;
     }
   }
   
@@ -315,7 +366,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                            <DropdownMenuItem onSelect={() => handleEditMessage(message)} disabled={message.type === 'image'}>
+                            <DropdownMenuItem onSelect={() => handleEditMessage(message)} disabled={message.type !== 'text'}>
                                 <PenSquare className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => setDeletingMessageId(message.id)} className="text-destructive">
@@ -330,7 +381,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                     message.sender?.id === currentUser.id
                       ? 'bg-primary/80 text-primary-foreground'
                       : 'bg-card',
-                    message.type === 'image' && 'p-2'
+                    message.type !== 'text' && 'p-2'
                   )}
                 >
                   {selectedChat.type === 'group' && message.sender?.id !== currentUser.id && (
@@ -354,14 +405,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                     </div>
                   ) : (
                     <>
-                      {message.type === 'image' ? (
-                        <a href={message.content} target="_blank" rel="noopener noreferrer">
-                            <img src={message.content} alt="Sent image" data-ai-hint="sent image" className="rounded-lg max-w-[200px] h-auto cursor-pointer" />
-                        </a>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      )}
-
+                      {renderMessageContent(message)}
                       <div className="flex items-end justify-end gap-2 mt-1">
                         {message.edited && (
                             <p className="text-xs text-muted-foreground/80">edited</p>
@@ -396,7 +440,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                 </PopoverContent>
             </Popover>
 
-            <Input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" disabled={loading} />
+            <Input type="file" ref={fileInputRef} onChange={handleFileUpload} accept={ALLOWED_FILE_TYPES.join(',')} className="hidden" disabled={loading} />
             <Button variant="ghost" size="icon" type="button" onClick={() => fileInputRef.current?.click()} disabled={loading}>
                 <Paperclip />
             </Button>
@@ -486,5 +530,3 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     </div>
   );
 }
-
-    

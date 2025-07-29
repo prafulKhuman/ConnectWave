@@ -144,7 +144,7 @@ const getCurrentUser = async (userId: string): Promise<Contact | null> => {
 const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
   const chatsQuery = query(collection(db, "chats"), where("participantIds", "array-contains", userId));
 
-  return onSnapshot(chatsQuery, async (chatsSnapshot) => {
+  const unsubscribe = onSnapshot(chatsQuery, async (chatsSnapshot) => {
     if (chatsSnapshot.empty) {
       callback([]);
       return;
@@ -165,8 +165,8 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
         participantChunks.push(allParticipantIds.slice(i, i + 30));
     }
 
-    for (const chunk of participantChunks) {
-        if (chunk.length === 0) continue;
+    await Promise.all(participantChunks.map(async chunk => {
+        if (chunk.length === 0) return;
         const usersQuery = query(collection(db, "users"), where(documentId(), "in", chunk));
         const usersSnapshot = await getDocs(usersQuery);
         usersSnapshot.forEach(userDoc => {
@@ -174,26 +174,27 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
              const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toDate() : undefined;
              participantsMap.set(userDoc.id, { id: userDoc.id, ...data, lastSeen } as Contact);
         });
-    }
+    }));
 
-    // Set up a single listener for all participant statuses
-    const statusRef = rtdbRef(rtdb, 'status');
-    onValue(statusRef, (snapshot) => {
-        const statuses = snapshot.val();
-        if (!statuses) return;
-        
-        participantsMap.forEach(participant => {
-            const status = statuses[participant.id];
+    const statusListeners = new Map<string, () => void>();
+
+    // Set up presence listeners for all participants
+    participantsMap.forEach(participant => {
+        const userStatusRef = rtdbRef(rtdb, 'status/' + participant.id);
+        const listener = onValue(userStatusRef, (snapshot) => {
+            const status = snapshot.val();
             if (status) {
-                participant.online = status.state === 'online';
-                 if(status.state === 'offline') {
-                    participant.lastSeen = new Date(status.last_changed);
+                const p = participantsMap.get(participant.id);
+                if (p) {
+                    p.online = status.state === 'online';
+                    if (status.state === 'offline') {
+                        p.lastSeen = new Date(status.last_changed);
+                    }
                 }
             }
+            processChats(); // Re-process chats on status change
         });
-        
-        // After updating statuses, re-process chats and call the callback
-        processChats();
+        statusListeners.set(participant.id, listener);
     });
 
     const processChats = async () => {
@@ -210,17 +211,33 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             const messages = messagesSnapshot.docs.map(msgDoc => {
                 const msgData = msgDoc.data();
                 const sender = participantsMap.get(msgData.senderId);
-                let content = msgData.content;
-                if (msgData.type === 'image') {
-                    content = '📷 Photo';
+                let contentPreview = msgData.content;
+                
+                switch (msgData.type) {
+                    case 'image':
+                        contentPreview = `📷 ${msgData.fileName || 'Image'}`;
+                        break;
+                    case 'video':
+                        contentPreview = `📹 ${msgData.fileName || 'Video'}`;
+                        break;
+                    case 'audio':
+                        contentPreview = `🎵 ${msgData.fileName || 'Audio'}`;
+                        break;
+                    case 'file':
+                        contentPreview = `📄 ${msgData.fileName || 'File'}`;
+                        break;
+                    default: // text
+                        contentPreview = msgData.content;
                 }
+
                 return { 
                     id: msgDoc.id,
-                    content: content,
+                    content: contentPreview,
                     timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                     sender: sender!,
                     type: msgData.type || 'text',
-                    edited: msgData.edited || false
+                    edited: msgData.edited || false,
+                    fileName: msgData.fileName
                 } as Message;
             });
 
@@ -232,18 +249,27 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             } as Chat;
         });
         
-        const chats = await Promise.all(chatPromises);
+        const chats = (await Promise.all(chatPromises)).sort((a, b) => {
+            const aTimestamp = a.messages[0]?.timestamp || "0";
+            const bTimestamp = b.messages[0]?.timestamp || "0";
+            return bTimestamp.localeCompare(aTimestamp);
+        });
         callback(chats);
     }
     
-    // Initial processing
-    processChats();
+    await processChats();
+
+    // Return a function to clean up all listeners
+    return () => {
+        unsubscribe();
+        statusListeners.forEach(listener => listener());
+    };
   });
 };
 
-const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, participants: Contact[]) => {
+const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void, initialParticipants: Contact[]) => {
     const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
-    const participantsMap = new Map(participants.map(p => [p.id, p]));
+    const participantsMap = new Map(initialParticipants.map(p => [p.id, p]));
 
     return onSnapshot(q, (querySnapshot) => {
         const messages = querySnapshot.docs.map(doc => {
@@ -257,19 +283,24 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
                 timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                 type: data.type || 'text',
                 edited: data.edited || false,
+                fileName: data.fileName || ''
             } as Message;
         });
         callback(messages);
     });
 };
 
-const sendMessageInChat = async (chatId: string, senderId: string, content: string, type: 'text' | 'image' = 'text') => {
-    await addDoc(collection(db, "chats", chatId, "messages"), {
+const sendMessageInChat = async (chatId: string, senderId: string, content: string, type: Message['type'] = 'text', fileName?: string) => {
+    const messageData: any = {
         senderId,
         content,
         type,
         timestamp: serverTimestamp()
-    });
+    };
+    if (fileName) {
+        messageData.fileName = fileName;
+    }
+    await addDoc(collection(db, "chats", chatId, "messages"), messageData);
 }
 
 const createNewGroupInFirestore = async (groupName: string, participantIds: string[], avatar: string) => {
@@ -351,10 +382,15 @@ const uploadAvatar = async (userId: string, file: File): Promise<string> => {
     return downloadURL;
 };
 
-const uploadImageForChat = async (chatId: string, file: File): Promise<string> => {
+const uploadFileForChat = async (chatId: string, file: File, type: Message['type']): Promise<string> => {
+    let folder = 'chat-files';
+    if (type === 'image') folder = 'chat-images';
+    if (type === 'video') folder = 'chat-videos';
+    if (type === 'audio') folder = 'chat-audio';
+
     const fileExtension = file.name.split('.').pop();
     const fileName = `${uuidv4()}.${fileExtension}`;
-    const storageRef = ref(storage, `chat-images/${chatId}/${fileName}`);
+    const storageRef = ref(storage, `${folder}/${chatId}/${fileName}`);
     await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(storageRef);
     return downloadURL;
@@ -410,9 +446,6 @@ const manageUserPresence = (userId: string) => {
             });
         });
     });
-
-    // We no longer need to listen here as the main chat listener will handle it.
-    // This reduces redundant listeners.
 };
 
 // New Contact Management Functions
@@ -500,14 +533,10 @@ export {
     clearChatHistory,
     deleteChat,
     updateBlockStatus,
-    uploadImageForChat,
+    uploadFileForChat,
     hashValue,
     compareValue,
     reauthenticateUser,
     deleteMessage,
     updateMessage,
 };
-
-    
-
-    
