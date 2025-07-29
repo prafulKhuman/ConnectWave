@@ -547,6 +547,29 @@ const togglePinChat = async (chatId: string, userId: string, isPinned: boolean) 
     });
 };
 
+const setUserTypingStatus = (chatId: string, userId: string, userName: string, isTyping: boolean) => {
+    if (!chatId || !userId) return;
+    const typingStatusRef = rtdbRef(rtdb, `typing-status/${chatId}/${userId}`);
+    if (isTyping) {
+        rtdbSet(typingStatusRef, { isTyping: true, name: userName });
+        // Optional: Add a timeout to automatically remove typing status
+        // This is a failsafe in case the client disconnects abruptly
+        setTimeout(() => {
+            rtdbSet(typingStatusRef, null);
+        }, 3000);
+    } else {
+        rtdbSet(typingStatusRef, null); // Remove the typing indicator
+    }
+};
+
+const onTypingStatusChange = (chatId: string, callback: (typingStatus: any) => void) => {
+    const chatTypingRef = rtdbRef(rtdb, `typing-status/${chatId}`);
+    return onValue(chatTypingRef, (snapshot) => {
+        const typingStatus = snapshot.val() || {};
+        callback(typingStatus);
+    });
+};
+
 
 export { 
     app, 
@@ -587,5 +610,9 @@ export {
     deleteMessage,
     updateMessage,
     onUserStatusChange,
-    togglePinChat
+    togglePinChat,
+    setUserTypingStatus,
+    onTypingStatusChange
 };
+
+    
