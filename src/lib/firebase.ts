@@ -175,25 +175,28 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
             });
         }));
 
-        let chats: Chat[] = [];
-        const messageListeners: (() => void)[] = [];
-
-        chatsSnapshot.docs.forEach((chatDoc) => {
+        let chats: Chat[] = chatsSnapshot.docs.map(chatDoc => {
             const chatData = chatDoc.data();
             const participants = chatData.participantIds
                 .map((id: string) => participantsMap.get(id))
                 .filter(Boolean) as Contact[];
-
-            let chat: Chat = {
+            return {
                 id: chatDoc.id,
                 ...chatData,
                 participants,
                 messages: [],
                 unreadCount: 0,
             } as Chat;
-            chats.push(chat);
+        });
 
-            const messagesQuery = query(collection(db, "chats", chatDoc.id, "messages"), orderBy("timestamp", "desc"));
+        const messageListeners: (() => void)[] = [];
+
+        chats.forEach((chat, index) => {
+            const messagesQuery = query(
+                collection(db, "chats", chat.id, "messages"),
+                orderBy("timestamp", "desc")
+            );
+
             const messageUnsubscribe = onSnapshot(messagesQuery, (messagesSnapshot) => {
                 const allMessages = messagesSnapshot.docs;
                 const lastMessageDoc = allMessages[0];
@@ -205,12 +208,12 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                         unreadCount++;
                     }
                 });
-
+                
                 let lastMessage: Message | undefined = undefined;
                 if (lastMessageDoc) {
                     const msgData = lastMessageDoc.data();
                     let contentPreview = msgData.content;
-                    switch (msgData.type) {
+                     switch (msgData.type) {
                         case 'image': contentPreview = `📷 Image`; break;
                         case 'video': contentPreview = `📹 Video`; break;
                         case 'audio': contentPreview = `🎵 Audio`; break;
@@ -230,25 +233,24 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                     };
                 }
 
-                const chatIndex = chats.findIndex(c => c.id === chatDoc.id);
-                if (chatIndex !== -1) {
-                    chats[chatIndex].messages = lastMessage ? [lastMessage] : [];
-                    chats[chatIndex].unreadCount = unreadCount;
-                    chats[chatIndex].participants = chatData.participantIds
-                        .map((id: string) => participantsMap.get(id))
-                        .filter(Boolean) as Contact[];
-
-                    callback([...chats]); // Trigger update
-                }
+                // Update the specific chat in the array
+                chats[index].messages = lastMessage ? [lastMessage] : [];
+                chats[index].unreadCount = unreadCount;
+                
+                // Important: Create a new array to trigger state update in React
+                callback([...chats]);
             });
             messageListeners.push(messageUnsubscribe);
         });
+
+        // The main listener should also return a function to clean up all message listeners
+        return () => {
+            unsubscribe();
+            messageListeners.forEach(unsub => unsub());
+        };
     });
 
-    return () => {
-        unsubscribe();
-        // You might need a way to unsubscribe from message listeners too if the component unmounts
-    };
+    return unsubscribe;
 };
 
 const getMessagesForChat = (chatId: string, callback: (messages: Message[], participantsMap: Map<string, Contact>) => void) => {
