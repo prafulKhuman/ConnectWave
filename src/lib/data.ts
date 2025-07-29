@@ -16,6 +16,7 @@ export type Message = {
   content: string; // URL for files, text for text messages
   timestamp: string;
   type: 'text' | 'image' | 'video' | 'audio' | 'file';
+  status: 'sent' | 'delivered' | 'read';
   edited?: boolean;
   fileName?: string; // e.g., 'document.pdf'
 };

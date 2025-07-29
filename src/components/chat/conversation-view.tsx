@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, onUserStatusChange } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, onUserStatusChange, updateMessagesStatus } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -53,6 +53,19 @@ const ALLOWED_FILE_TYPES = [
 type ConversationViewProps = {
   selectedChat: Chat | null;
   currentUser: Contact;
+};
+
+const MessageStatus = ({ status }: { status: Message['status'] }) => {
+    if (status === 'sent') {
+        return <Check className="h-4 w-4" />;
+    }
+    if (status === 'delivered') {
+        return <CheckCheck className="h-4 w-4" />;
+    }
+    if (status === 'read') {
+        return <CheckCheck className="h-4 w-4 text-blue-500" />;
+    }
+    return null;
 };
 
 export function ConversationView({ selectedChat, currentUser }: ConversationViewProps) {
@@ -90,7 +103,17 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
   React.useEffect(() => {
     if (selectedChat) {
       setLoading(true);
-      const unsubscribe = getMessagesForChat(selectedChat.id, setMessages, selectedChat.participants);
+      const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages) => {
+          setMessages(newMessages);
+          const incomingMessagesToUpdate = newMessages
+              .filter(m => m.sender?.id !== currentUser.id && m.status !== 'read')
+              .map(m => m.id);
+
+          if (incomingMessagesToUpdate.length > 0) {
+              updateMessagesStatus(selectedChat.id, incomingMessagesToUpdate, 'read');
+          }
+      }, selectedChat.participants);
+
       setLoading(false);
 
       const participant = selectedChat.participants.find((p) => p.id !== currentUser.id);
@@ -438,13 +461,16 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
                   ) : (
                     <>
                       {renderMessageContent(message)}
-                      <div className="flex items-end justify-end gap-2 mt-1">
+                      <div className="flex items-center justify-end gap-2 mt-1 text-muted-foreground/80">
                         {message.edited && (
-                            <p className="text-xs text-muted-foreground/80">edited</p>
+                            <p className="text-xs">edited</p>
                         )}
-                        <p className="text-xs text-muted-foreground/80">
+                        <p className="text-xs">
                             {message.timestamp}
                         </p>
+                        {message.sender?.id === currentUser.id && (
+                          <MessageStatus status={message.status} />
+                        )}
                       </div>
                     </>
                   )}
@@ -562,7 +588,3 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
     </div>
   );
 }
-
-    
-
-    

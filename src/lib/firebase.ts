@@ -213,6 +213,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
                 timestamp: msgData.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                 sender: sender!,
                 type: msgData.type || 'text',
+                status: msgData.status || 'sent',
                 edited: msgData.edited || false,
                 fileName: msgData.fileName
             } as Message;
@@ -253,6 +254,7 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => v
                 content: data.content,
                 timestamp: data.timestamp?.toDate().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }) || '',
                 type: data.type || 'text',
+                status: data.status || 'sent',
                 edited: data.edited || false,
                 fileName: data.fileName || ''
             } as Message;
@@ -266,6 +268,7 @@ const sendMessageInChat = async (chatId: string, senderId: string, content: stri
         senderId,
         content,
         type,
+        status: 'sent',
         timestamp: serverTimestamp()
     };
     if (fileName) {
@@ -273,6 +276,16 @@ const sendMessageInChat = async (chatId: string, senderId: string, content: stri
     }
     await addDoc(collection(db, "chats", chatId, "messages"), messageData);
 }
+
+const updateMessagesStatus = async (chatId: string, messageIds: string[], status: Message['status']) => {
+    if (messageIds.length === 0) return;
+    const batch = writeBatch(db);
+    messageIds.forEach(messageId => {
+        const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+        batch.update(messageRef, { status });
+    });
+    await batch.commit();
+};
 
 const createNewGroupInFirestore = async (groupName: string, participantIds: string[], avatar: string) => {
     const chatRef = await addDoc(collection(db, "chats"), {
@@ -335,7 +348,8 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
             senderId: currentUserId,
             content: "Chat started.",
             timestamp: serverTimestamp(),
-            type: 'text'
+            type: 'text',
+            status: 'sent',
         });
         return chatRef.id;
     } else {
@@ -530,6 +544,7 @@ export {
     getChatsForUser,
     getMessagesForChat,
     sendMessageInChat,
+    updateMessagesStatus,
     createNewGroupInFirestore,
     getAvailableContacts, // Kept for potential other uses, but Create Group will use getContacts
     updateUserProfile,
