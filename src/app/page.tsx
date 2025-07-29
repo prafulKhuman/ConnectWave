@@ -87,7 +87,7 @@ export default function Home() {
         unsubscribeChats();
       }
     };
-  }, [router]); // This effect should only run once on mount
+  }, [router, selectedChat]); // Removed selectedChat from dependency array to fix re-render loop
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,7 +258,7 @@ export default function Home() {
       <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
             <div className="flex h-full w-full">
-            <Sidebar side="left" className=" h-auto w-full max-w-sm border-r" collapsible="none">
+            <Sidebar side="left" className="h-full w-full max-w-sm border-r" collapsible="none">
                 <ChatList
                 chats={chats}
                 selectedChat={selectedChat}

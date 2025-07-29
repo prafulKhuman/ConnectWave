@@ -236,7 +236,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
         </div>
       </header>
 
-      <div className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <ScrollArea
           className="h-full"
           viewportRef={scrollViewportRef}
