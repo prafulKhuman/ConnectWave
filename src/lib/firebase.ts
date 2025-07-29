@@ -291,7 +291,8 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[], part
                     type: data.type || 'text',
                     status: data.status || 'sent',
                     edited: data.edited || false,
-                    fileName: data.fileName || ''
+                    fileName: data.fileName || '',
+                    deletedFor: data.deletedFor || [],
                 } as Message;
             });
             callback(messages, participantsMap);
@@ -560,6 +561,13 @@ const deleteMessage = async (chatId: string, messageId: string) => {
     await deleteDoc(messageRef);
 };
 
+const deleteMessageForMe = async (chatId: string, messageId: string, userId: string) => {
+    const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+    await updateDoc(messageRef, {
+        deletedFor: arrayUnion(userId)
+    });
+};
+
 const updateMessage = async (chatId: string, messageId: string, newContent: string) => {
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await updateDoc(messageRef, {
@@ -631,6 +639,7 @@ export {
     compareValue,
     reauthenticateUser,
     deleteMessage,
+    deleteMessageForMe,
     updateMessage,
     onUserStatusChange,
     togglePinChat,

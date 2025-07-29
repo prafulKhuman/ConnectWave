@@ -20,6 +20,7 @@ export type Message = {
   status: 'sent' | 'delivered' | 'read';
   edited?: boolean;
   fileName?: string; // e.g., 'document.pdf'
+  deletedFor?: string[]; // Array of user IDs for whom the message is deleted
 };
 
 export type Chat = {

@@ -4,7 +4,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Camera as CameraIconUI } from 'lucide-react';
+import { Phone, Video, MoreVertical, Paperclip, Send, Smile, WifiOff, MessageSquareHeart, Loader2, Trash2, Ban, Eye, UserX, PenSquare, MoreHorizontal, File as FileIcon, Music, VideoIcon, Check, CheckCheck, X, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import {
   Popover,
@@ -32,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -79,7 +80,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
   const [isSending, setIsSending] = React.useState(false);
   const [isViewContactOpen, setIsViewContactOpen] = React.useState(false);
   const [isCameraOpen, setIsCameraOpen] = React.useState(false);
-  const [dialogState, setDialogState] = React.useState<{ clearChat?: boolean; blockChat?: boolean, deleteMessageId?: string }>({});
+  const [dialogState, setDialogState] = React.useState<{ clearChat?: boolean; blockChat?: boolean, deleteMessage?: Message, deleteType?: 'me' | 'everyone' }>({});
   const [actionLoading, setActionLoading] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
   
@@ -100,7 +101,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
       setOtherParticipant(otherUser);
       
       const unsubscribe = getMessagesForChat(selectedChat.id, (newMessages) => {
-        setMessages(newMessages);
+        const visibleMessages = newMessages.filter(m => !m.deletedFor?.includes(currentUser.id));
+        setMessages(visibleMessages);
       });
       
       return () => unsubscribe();
@@ -312,12 +314,18 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
     }
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!selectedChat) return;
+  const handleDeleteMessage = async () => {
+    if (!selectedChat || !dialogState.deleteMessage) return;
     setActionLoading(true);
+
     try {
-        await deleteMessage(selectedChat.id, messageId);
-        toast({title: "Message Deleted"});
+        if (dialogState.deleteType === 'everyone') {
+            await deleteMessage(selectedChat.id, dialogState.deleteMessage.id);
+            toast({title: "Message deleted for everyone"});
+        } else {
+            await deleteMessageForMe(selectedChat.id, dialogState.deleteMessage.id, currentUser.id);
+            toast({title: "Message deleted for you"});
+        }
     } catch (error) {
         toast({ variant: 'destructive', title: "Error", description: "Failed to delete message." });
     } finally {
@@ -497,20 +505,29 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                                         <DropdownMenuItem onClick={() => handleEditMessage(message)}>
                                             <PenSquare className="mr-2 h-4 w-4" /> Edit
                                         </DropdownMenuItem>
-                                        <AlertDialog open={dialogState.deleteMessageId === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessageId: open ? message.id : undefined}))}>
+                                        <AlertDialog open={dialogState.deleteMessage?.id === message.id} onOpenChange={(open) => setDialogState(prev => ({...prev, deleteMessage: open ? message : undefined}))}>
                                             <AlertDialogTrigger asChild>
                                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive">
                                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                                                 </DropdownMenuItem>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>Delete this message?</AlertDialogTitle></AlertDialogHeader>
-                                                <AlertDialogDescription>This will permanently delete this message for everyone. This action cannot be undone.</AlertDialogDescription>
-                                                <AlertDialogFooter>
+                                                <AlertDialogHeader><AlertDialogTitle>Delete message?</AlertDialogTitle></AlertDialogHeader>
+                                                <AlertDialogDescription>
+                                                    Are you sure you want to delete this message? This action cannot be undone.
+                                                </AlertDialogDescription>
+                                                <AlertDialogFooter className="sm:justify-between">
                                                     <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteMessage(message.id)} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                                        {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
-                                                    </AlertDialogAction>
+                                                    <div className="flex flex-col-reverse sm:flex-row gap-2">
+                                                        <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'me'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                            {actionLoading && dialogState.deleteType === 'me' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                                             Delete for me
+                                                        </AlertDialogAction>
+                                                         <AlertDialogAction onClick={() => setDialogState(prev => ({...prev, deleteType: 'everyone'}))} disabled={actionLoading} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                            {actionLoading && dialogState.deleteType === 'everyone' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Trash2 className="mr-2 h-4 w-4"/>}
+                                                            Delete for everyone
+                                                        </AlertDialogAction>
+                                                    </div>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -525,6 +542,23 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
             </ScrollArea>
          </div>
        </div>
+
+      <AlertDialog open={!!(dialogState.deleteMessage && dialogState.deleteType)} onOpenChange={(open) => !open && setDialogState({})}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This message will be deleted {dialogState.deleteType === 'everyone' ? 'for everyone' : 'for you'}. This action cannot be undone.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setDialogState({})} disabled={actionLoading}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteMessage} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={actionLoading}>
+                      {actionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Delete
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
 
       <footer className="flex-shrink-0 border-t bg-card p-3">
         {isChatBlocked ? (
@@ -554,7 +588,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible }: Co
                 </Popover>
                 
                 <Button variant="ghost" size="icon" onClick={() => setIsCameraOpen(true)} disabled={isSending || isUploading}>
-                    <CameraIconUI className="h-5 w-5" />
+                    <Camera className="h-5 w-5" />
                 </Button>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
