@@ -85,6 +85,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
   const [dialogState, setDialogState] = React.useState<{ clearChat?: boolean; blockChat?: boolean, deleteMessage?: Message, deleteType?: 'me' | 'everyone' }>({});
   const [actionLoading, setActionLoading] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isFeatureUnavailableDialogOpen, setIsFeatureUnavailableDialogOpen] = React.useState(false);
   
   const [editingMessage, setEditingMessage] = React.useState<Message | null>(null);
   const [editContent, setEditContent] = React.useState('');
@@ -391,8 +392,25 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     }
   }
 
+  const ComingSoonDialog = (
+    <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
+            <AlertDialogDescription>
+                This feature is currently under development and will be available soon. We appreciate your patience and encourage you to explore other available features in the meantime. Thank you for your understanding!
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsFeatureUnavailableDialogOpen(false)}>OK</AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+  );
+
   return (
     <div className="flex h-full flex-col chat-background">
+      <AlertDialog open={isFeatureUnavailableDialogOpen} onOpenChange={setIsFeatureUnavailableDialogOpen}>
+        {ComingSoonDialog}
+      </AlertDialog>
       <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-2 sm:p-3">
         <div className="flex items-center gap-2 sm:gap-3">
           {isMobile && (
@@ -407,32 +425,14 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" disabled>
-                  <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="sr-only">Audio Call</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>This feature is coming soon! We're hard at work bringing this to you.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-           <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" disabled>
-                  <Video className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="sr-only">Video Call</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>This feature is coming soon! We're hard at work bringing this to you.</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+              <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="sr-only">Audio Call</span>
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+              <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="sr-only">Video Call</span>
+            </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
@@ -610,33 +610,15 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                         </PopoverContent>
                     </Popover>
                     
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                           <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
-                             <Camera className="h-5 w-5" />
-                           </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                           <p>This feature is coming soon! We're hard at work bringing this to you.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                       <Camera className="h-5 w-5" />
+                     </Button>
                 </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
-                        {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>This feature is coming soon! We're hard at work bringing this to you.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                  {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
+                </Button>
                 <Textarea
                     ref={messageInputRef}
                     value={editingMessage ? editContent : newMessage}
@@ -656,3 +638,5 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     </div>
   );
 }
+
+    

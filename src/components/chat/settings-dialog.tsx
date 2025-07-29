@@ -23,6 +23,14 @@ import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
 import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogDescription,
+} from '@/components/ui/alert-dialog';
+
 
 type SettingsDialogProps = {
   currentUser: ContactType;
@@ -43,6 +51,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [profileLoading, setProfileLoading] = useState(false);
   const [pinLoading, setPinLoading] = useState(false);
   const [quickChatLoading, setQuickChatLoading] = useState(false);
+  const [isFeatureUnavailableDialogOpen, setIsFeatureUnavailableDialogOpen] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -166,6 +175,20 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     setIsOpen(false);
   }
 
+  const ComingSoonDialog = (
+    <AlertDialogContent>
+        <AlertDialogHeader>
+            <DialogTitle>Feature Not Available</DialogTitle>
+            <AlertDialogDescription>
+                This feature is currently under development and will be available soon. We appreciate your patience and encourage you to explore other available features in the meantime. Thank you for your understanding!
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsFeatureUnavailableDialogOpen(false)}>OK</AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -175,6 +198,9 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
+         <AlertDialog open={isFeatureUnavailableDialogOpen} onOpenChange={setIsFeatureUnavailableDialogOpen}>
+            {ComingSoonDialog}
+         </AlertDialog>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
@@ -194,18 +220,9 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
             <div className="flex flex-col items-center space-y-2">
                 <div className="relative">
                     <UserAvatar user={{ ...currentUser, avatar: avatarPreview }} className="h-24 w-24" />
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted" style={{ pointerEvents: 'none' }}>
-                              <Upload className="h-4 w-4" />
-                          </Label>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>This feature is coming soon! We're hard at work bringing this to you.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                      <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                          <Upload className="h-4 w-4" />
+                      </Label>
                     <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled />
                 </div>
             </div>
@@ -284,3 +301,5 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     </Dialog>
   );
 }
+
+    
