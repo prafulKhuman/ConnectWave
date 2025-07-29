@@ -79,7 +79,9 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
 
   React.useEffect(() => {
     if (selectedChat) {
+      setLoading(true);
       const unsubscribe = getMessagesForChat(selectedChat.id, setMessages, selectedChat.participants);
+      setLoading(false);
       return () => unsubscribe();
     }
   }, [selectedChat]);
@@ -312,6 +314,7 @@ export function ConversationView({ selectedChat, currentUser }: ConversationView
               id: selectedChat.id,
               name: chatDetails.name || 'Unknown',
               avatar: chatDetails.avatar || '',
+              online: otherParticipant?.online
             }}
           />
           <div>

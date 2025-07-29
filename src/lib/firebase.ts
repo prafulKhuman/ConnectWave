@@ -433,6 +433,13 @@ const manageUserPresence = (userId: string) => {
     
     onValue(rtdbRef(rtdb, '.info/connected'), (snapshot) => {
         if (snapshot.val() === false) {
+            // Instead of returning, we might want to set the user offline
+            // However, the onDisconnect handler should take care of this.
+            // Let's ensure the Firestore 'lastSeen' is updated too.
+            const userDocRef = doc(db, "users", userId);
+            updateDoc(userDocRef, {
+                lastSeen: serverTimestamp()
+            });
             return;
         }
 
@@ -443,6 +450,11 @@ const manageUserPresence = (userId: string) => {
             rtdbSet(userStatusDatabaseRef, {
                 state: 'online',
                 last_changed: rtdbServerTimestamp(),
+            });
+            // Also update Firestore to reflect online status
+            const userDocRef = doc(db, "users", userId);
+            updateDoc(userDocRef, {
+                online: true
             });
         });
     });
