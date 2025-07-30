@@ -27,7 +27,6 @@ export default function CallPage() {
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
-    const ringtoneRef = useRef<HTMLAudioElement>(null);
 
     const {
         localStream,
@@ -70,21 +69,6 @@ export default function CallPage() {
         }
     }, [remoteStream]);
 
-    // Ringtone logic
-    useEffect(() => {
-        const isRinging = isInitiator && (connectionStatus === 'connecting' || connectionStatus === 'new');
-        
-        if (ringtoneRef.current) {
-            if (isRinging) {
-                ringtoneRef.current.loop = true;
-                ringtoneRef.current.play().catch(e => console.error("Ringtone play error:", e));
-            } else {
-                ringtoneRef.current.pause();
-                ringtoneRef.current.currentTime = 0;
-            }
-        }
-    }, [isInitiator, connectionStatus]);
-
     useEffect(() => {
       if (connectionStatus === 'failed' || connectionStatus === 'closed' || connectionStatus === 'disconnected') {
         router.push('/');
@@ -119,7 +103,6 @@ export default function CallPage() {
 
     return (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <audio ref={ringtoneRef} src="/ringtone.mp3" preload="auto" />
             <div className="relative h-full w-full bg-cover bg-center transition-all duration-300">
                 
                 {/* Unconditional Video elements to prevent "no supported sources" error */}
