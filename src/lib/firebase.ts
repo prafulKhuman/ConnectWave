@@ -656,7 +656,10 @@ const initiateCall = async (callerId: string, calleeId: string, type: 'audio' | 
 };
 
 const answerCall = async (callId: string, calleeId: string) => {
-    await updateDoc(doc(db, 'calls', callId), { status: 'answered' });
+    const callDocRef = doc(db, 'calls', callId);
+    if ((await getDoc(callDocRef)).exists()) {
+        await updateDoc(callDocRef, { status: 'answered' });
+    }
 };
 
 
