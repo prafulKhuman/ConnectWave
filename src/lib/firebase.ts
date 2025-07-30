@@ -533,8 +533,22 @@ const deleteContact = async (userId: string, contactId: string) => {
     await deleteDoc(contactRef);
 };
 
-const deleteMessage = async (chatId: string, messageId: string) => {
-    const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+const deleteMessage = async (chatId: string, message: Message) => {
+    // If the message is an image or video, delete it from Cloudinary first
+    if ((message.type === 'image' || message.type === 'video') && message.content) {
+        try {
+            await fetch('/api/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: message.content }),
+            });
+        } catch (error) {
+            console.error("Failed to delete from Cloudinary, proceeding with Firestore deletion.", error);
+        }
+    }
+    
+    // Then delete the message from Firestore
+    const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
     await deleteDoc(messageRef);
 };
 

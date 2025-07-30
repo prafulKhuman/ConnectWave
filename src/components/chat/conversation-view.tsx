@@ -329,13 +329,13 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
   const handleDeleteMessage = async () => {
     if (!selectedChat || !dialogState.deleteMessage) return;
     setActionLoading(true);
-
+    const messageToDelete = dialogState.deleteMessage;
     try {
         if (dialogState.deleteType === 'everyone') {
-            await deleteMessage(selectedChat.id, dialogState.deleteMessage.id);
+            await deleteMessage(selectedChat.id, messageToDelete);
             toast({title: "Message deleted for everyone"});
         } else {
-            await deleteMessageForMe(selectedChat.id, dialogState.deleteMessage.id, currentUser.id);
+            await deleteMessageForMe(selectedChat.id, messageToDelete.id, currentUser.id);
             toast({title: "Message deleted for you"});
         }
     } catch (error) {
