@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, uploadAvatar, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
+import { updateUserProfile, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,29 +78,16 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
+      setIsFeatureUnavailableDialogOpen(true);
     }
   };
   
   const handleProfileUpdate = async () => {
     if (!currentUser) return;
     setProfileLoading(true);
-    let newAvatarUrl = currentUser.avatar;
-    if (avatarFile) {
-        try {
-            newAvatarUrl = await uploadAvatar(currentUser.id, avatarFile);
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Upload Failed", description: "Could not upload new profile picture." });
-            setProfileLoading(false);
-            return;
-        }
-    }
-
     try {
-      await updateUserProfile(currentUser.id, { name, avatar: newAvatarUrl });
-      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
+      await updateUserProfile(currentUser.id, { name });
+      toast({ title: "Profile Updated", description: "Your name has been successfully updated." });
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Failed to update profile." });
     } finally {

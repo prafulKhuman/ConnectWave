@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
   },
    webpack: (config, { isServer }) => {
     // Exclude bcrypt from client-side bundle
-    config.externals.push('bcrypt', 'googleapis');
+    config.externals.push('bcrypt');
     return config;
   },
 };

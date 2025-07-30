@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFile, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -252,8 +252,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0] && selectedChat) {
-        const file = event.target.files[0];
-        handleSendFile(file);
+        setIsFeatureUnavailableDialogOpen(true);
         // Reset file input
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
@@ -263,46 +262,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
 
   const handleSendFile = async (file: File) => {
       if (!selectedChat) return;
-
-      if (file.size > MAX_FILE_SIZE) {
-          toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
-          return;
-      }
-      
-      let fileType: Message['type'] = 'file';
-      if (file.type.startsWith('image/')) fileType = 'image';
-      else if (file.type.startsWith('video/')) fileType = 'video';
-      else if (file.type.startsWith('audio/')) fileType = 'audio';
-
-      if (fileType === 'file' && !ALLOWED_FILE_TYPES.includes(file.type)) {
-          toast({ variant: 'destructive', title: 'Invalid File Type', description: 'This file type is not supported.' });
-          return;
-      }
-      
-      setIsUploading(true);
-      
-      const tempId = `temp_${Date.now()}`;
-      const tempMessage: Message = {
-        id: tempId,
-        sender: currentUser,
-        content: URL.createObjectURL(file), // Use local URL for preview
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
-        timestamp_raw: Date.now(),
-        type: fileType,
-        status: 'sending',
-        fileName: file.name
-      };
-      setMessages(prev => [...prev, tempMessage]);
-      
-      try {
-          const downloadURL = await uploadFile(file);
-          await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
-      } catch (error) {
-          toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
-          setMessages(prev => prev.filter(m => m.id !== tempId));
-      } finally {
-          setIsUploading(false);
-      }
+      setIsFeatureUnavailableDialogOpen(true);
   }
   
   const handleClearChat = async () => {
@@ -630,7 +590,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                         </PopoverContent>
                     </Popover>
                     
-                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsCameraOpen(true)}>
+                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
                        <Camera className="h-5 w-5" />
                      </Button>
                 </div>

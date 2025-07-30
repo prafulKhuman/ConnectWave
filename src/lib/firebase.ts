@@ -402,29 +402,6 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
     }
 };
 
-const uploadFile = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-    });
-
-    if (!res.ok) {
-        const errorDetails = await res.json().catch(() => ({ error: 'File upload failed' }));
-        console.error('Upload API Error:', errorDetails);
-        throw new Error(errorDetails.error || 'File upload failed');
-    }
-
-    const data = await res.json();
-    return data.url;
-}
-
-const uploadAvatar = async (userId: string, file: File): Promise<string> => {
-    return await uploadFile(file);
-};
-
 const clearChatHistory = async (chatId: string) => {
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const querySnapshot = await getDocs(messagesRef);
@@ -627,14 +604,12 @@ export {
     manageUserPresence,
     findUserByEmail,
     createChatWithUser,
-    uploadAvatar,
     getContacts,
     addContact,
     deleteContact,
     clearChatHistory,
     deleteChat,
     updateBlockStatus,
-    uploadFile,
     hashValue,
     compareValue,
     reauthenticateUser,
