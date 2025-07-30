@@ -92,7 +92,7 @@ export default function CallPage() {
         router.push('/');
     };
 
-    const showVideo = callType === 'video' && !isVideoOff && connectionStatus === 'connected' && !!remoteStream;
+    const showVideo = callType === 'video' && connectionStatus === 'connected' && !isVideoOff && !!remoteStream;
 
     if (!currentUser || !opponentUser) {
         return (
@@ -119,13 +119,19 @@ export default function CallPage() {
                 
                 {/* Unconditional Video elements to prevent "no supported sources" error */}
                 <video ref={remoteVideoRef} autoPlay playsInline className={cn("absolute top-0 left-0 h-full w-full object-cover", !showVideo && "hidden")} />
-                <video ref={localVideoRef} autoPlay muted playsInline className={cn("absolute bottom-24 right-4 h-40 w-28 rounded-lg border-2 border-white/50 object-cover shadow-lg md:bottom-32 md:h-48 md:w-36", !showVideo && "hidden")} />
                 
                 {/* Backgrounds and Overlays */}
                 {showVideo ? (
-                    <div className="absolute inset-0 bg-black/30" />
+                    <>
+                      <div className="absolute inset-0 bg-black/30" />
+                       <video ref={localVideoRef} autoPlay muted playsInline className="absolute bottom-24 right-4 h-40 w-28 rounded-lg border-2 border-white/50 object-cover shadow-lg md:bottom-32 md:h-48 md:w-36" />
+                    </>
                 ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+                      {/* Hidden local video for audio calls to keep the track active */}
+                      <video ref={localVideoRef} autoPlay muted playsInline className="hidden" />
+                    </>
                 )}
 
                 <div className="relative z-10 flex flex-col items-center justify-between text-center text-foreground p-6 min-h-full">

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { db, addIceCandidate, onIceCandidateAdded, listenForCallUpdates, hangUpCall, updateCallData } from '@/lib/firebase';
+import { db, addIceCandidate, onIceCandidateAdded, hangUpCall, updateCallData } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 const servers = {
@@ -36,22 +36,13 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         }
     }, [callType]);
 
-
     useEffect(() => {
         setupStreams();
     }, [setupStreams]);
 
-    const processIceCandidateBuffer = useCallback((pc: RTCPeerConnection) => {
-        iceCandidateBuffer.current.forEach(candidate => {
-            pc.addIceCandidate(new RTCIceCandidate(candidate));
-        });
-        iceCandidateBuffer.current = [];
-    }, []);
-
     const handleHangUp = useCallback(async () => {
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
-            peerConnectionRef.current = null;
         }
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
@@ -60,6 +51,13 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         setRemoteStream(null);
         await hangUpCall(callId);
     }, [localStream, callId]);
+
+    const processIceCandidateBuffer = useCallback((pc: RTCPeerConnection) => {
+        iceCandidateBuffer.current.forEach(candidate => {
+            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding buffered ICE candidate", e));
+        });
+        iceCandidateBuffer.current = [];
+    }, []);
 
 
     useEffect(() => {
@@ -99,15 +97,15 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
 
             const currentPc = peerConnectionRef.current;
             
-            // Initiator creates the offer
             if (isInitiator && !data.offer) {
-                const offerDescription = await currentPc.createOffer();
-                await currentPc.setLocalDescription(offerDescription);
-                await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
+                if (currentPc.signalingState === 'stable') {
+                    const offerDescription = await currentPc.createOffer();
+                    await currentPc.setLocalDescription(offerDescription);
+                    await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
+                }
             }
-
-            // Callee receives the offer and creates an answer
-            if (!isInitiator && data.offer && currentPc.signalingState === 'stable') {
+            
+            if (data.offer && currentPc.signalingState === 'stable' && !isInitiator) {
                 const offerDescription = new RTCSessionDescription(data.offer);
                 await currentPc.setRemoteDescription(offerDescription);
                 
@@ -118,8 +116,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
                 processIceCandidateBuffer(currentPc);
             }
 
-            // Initiator receives the answer
-            if (isInitiator && data.answer && !currentPc.remoteDescription) {
+            if (data.answer && currentPc.remoteDescription === null) {
                  const answerDescription = new RTCSessionDescription(data.answer);
                  await currentPc.setRemoteDescription(answerDescription);
                  processIceCandidateBuffer(currentPc);
@@ -128,7 +125,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         
         const unsubscribeIce = onIceCandidateAdded(callId, opponentId, (candidate) => {
             if (peerConnectionRef.current?.remoteDescription) {
-                peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding ICE candidate", e));
             } else {
                 iceCandidateBuffer.current.push(candidate);
             }
@@ -140,7 +137,6 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             unsubscribeCall();
             if (peerConnectionRef.current) {
                 peerConnectionRef.current.close();
-                peerConnectionRef.current = null;
             }
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
