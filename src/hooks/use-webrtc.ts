@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { db, addIceCandidate, onIceCandidateAdded, hangUpCall, updateCallData } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 
 export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio' | 'video', currentUserId?: string, opponentId?: string) {
     const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -36,8 +36,8 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         }
 
         // Check if call document still exists before trying to update it
-        const callDoc = await doc(db, 'calls', callId);
-        if ((await doc(db, 'calls', callId).get()).exists()) {
+        const callDocRef = doc(db, 'calls', callId);
+        if ((await getDoc(callDocRef)).exists()) {
             await hangUpCall(callId);
         }
     }, [callId]);
