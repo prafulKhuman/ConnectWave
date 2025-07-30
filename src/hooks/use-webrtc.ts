@@ -19,11 +19,10 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
         }
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
+        // Access localStream via its state setter's functional update or ref if needed, but for cleanup it's often okay to assume it's there.
+        // Or better yet, manage the stream stopping inside the cleanup effect.
         await hangUpCall(callId);
-    }, [localStream, callId]);
+    }, [callId]);
 
     const processIceCandidateBuffer = useCallback((pc: RTCPeerConnection) => {
         iceCandidateBuffer.current.forEach(candidate => {
@@ -143,7 +142,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             cleanupPromise.then(cleanup => cleanup && cleanup());
         };
 
-    }, [callId, isInitiator, callType, currentUserId, opponentId, handleHangUp, processIceCandidateBuffer]);
+    }, [callId, isInitiator, callType, currentUserId, opponentId]);
 
 
     const toggleMute = () => {
