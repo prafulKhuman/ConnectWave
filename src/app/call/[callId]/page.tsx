@@ -106,6 +106,9 @@ export default function CallPage() {
         if (isInitiator && (connectionStatus === 'connecting' || connectionStatus === 'new')) {
             return 'Ringing...';
         }
+        if (connectionStatus === 'connected' && callType === 'video') {
+             return opponentUser.name || 'Connected';
+        }
         return `${connectionStatus}...`;
     }
 
@@ -113,23 +116,21 @@ export default function CallPage() {
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <audio ref={ringtoneRef} src="/ringtone.mp3" preload="auto" />
             <div className="relative h-full w-full bg-cover bg-center transition-all duration-300">
+                
+                {/* Unconditional Video elements to prevent "no supported sources" error */}
+                <video ref={remoteVideoRef} autoPlay playsInline className={cn("absolute top-0 left-0 h-full w-full object-cover", !showVideo && "hidden")} />
+                <video ref={localVideoRef} autoPlay muted playsInline className={cn("absolute bottom-24 right-4 h-40 w-28 rounded-lg border-2 border-white/50 object-cover shadow-lg md:bottom-32 md:h-48 md:w-36", !showVideo && "hidden")} />
+                
+                {/* Backgrounds and Overlays */}
                 {showVideo ? (
-                    <>
-                        <video ref={remoteVideoRef} autoPlay playsInline className="absolute top-0 left-0 h-full w-full object-cover" />
-                        <div className="absolute inset-0 bg-black/30" />
-                        <video ref={localVideoRef} autoPlay muted playsInline className="absolute bottom-24 right-4 h-40 w-28 rounded-lg border-2 border-white/50 object-cover shadow-lg md:bottom-32 md:h-48 md:w-36" />
-                    </>
+                    <div className="absolute inset-0 bg-black/30" />
                 ) : (
-                     <>
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-                        {/* Hidden video element for audio calls to attach stream */}
-                        <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
-                     </>
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
                 )}
 
                 <div className="relative z-10 flex flex-col items-center justify-between text-center text-foreground p-6 min-h-full">
-                    <div className="flex-grow flex flex-col items-center justify-center space-y-4">
-                        {!showVideo && (
+                    <div className="flex-grow flex flex-col items-center justify-center space-y-4 pt-12">
+                        {!showVideo ? (
                              <>
                                 <UserAvatar user={opponentUser} className="h-32 w-32 border-4 border-background shadow-lg" />
                                 <h2 className="text-3xl font-bold">{opponentUser.name}</h2>
@@ -137,6 +138,13 @@ export default function CallPage() {
                                     {getStatusText()}
                                 </p>
                             </>
+                        ) : (
+                            <div className='text-white/90'>
+                                <h2 className="text-3xl font-bold">{opponentUser.name}</h2>
+                                <p className="text-lg capitalize">
+                                    {connectionStatus === 'connected' ? 'Connected' : getStatusText()}
+                                </p>
+                            </div>
                         )}
                     </div>
 
