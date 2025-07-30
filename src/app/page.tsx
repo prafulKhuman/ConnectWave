@@ -103,7 +103,7 @@ export default function Home() {
             setCurrentUser(userProfile);
 
             unsubscribeCalls = listenForCall(userProfile.id, async (call) => {
-                if (call && call.offer) {
+                if (call && call.status === 'ringing') {
                     const callerProfile = await getCurrentUser(call.callerId);
                     setIncomingCall({ ...call, caller: callerProfile });
                 } else {

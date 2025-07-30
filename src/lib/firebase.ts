@@ -535,7 +535,7 @@ const deleteContact = async (userId: string, contactId: string) => {
 
 const deleteMessage = async (chatId: string, message: Message) => {
     // If the message is an image or video, delete it from Cloudinary first
-    if ((message.type === 'image' || message.type === 'video') && message.content) {
+    if ((message.type === 'image' || message.type === 'video' || message.type === 'file' || message.type === 'audio') && message.content) {
         try {
             await fetch('/api/delete', {
                 method: 'POST',
@@ -656,16 +656,23 @@ const initiateCall = async (callerId: string, calleeId: string, type: 'audio' | 
 };
 
 const answerCall = async (callId: string, calleeId: string) => {
-    await updateDoc(doc(db, 'calls', callId), { status: 'answered', calleeId });
+    await updateDoc(doc(db, 'calls', callId), { status: 'answered' });
 };
 
 
-const listenForCall = (userId: string, callback: (call: any) => void) => {
+const listenForCall = (userId: string, callback: (call: any | null) => void) => {
     const q = query(collection(db, 'calls'), where('calleeId', '==', userId), where('status', '==', 'ringing'));
     return onSnapshot(q, (snapshot) => {
         if (!snapshot.empty) {
             const callDoc = snapshot.docs[0];
-            callback({ id: callDoc.id, ...callDoc.data() });
+            const callData = { id: callDoc.id, ...callDoc.data() };
+            // Ensure we don't act on stale ringing calls
+            const callTime = (callData.createdAt as Timestamp)?.toDate().getTime() || 0;
+            if (Date.now() - callTime < 30000) { // Check if call is within 30s timeout
+                 callback(callData);
+            } else {
+                 callback(null);
+            }
         } else {
             callback(null);
         }
@@ -686,14 +693,20 @@ const hangUpCall = async (callId: string) => {
 };
 
 const updateCallData = async (callId: string, data: any) => {
-    await updateDoc(doc(db, 'calls', callId), data);
+    const callRef = doc(db, 'calls', callId);
+    if ((await getDoc(callRef)).exists()) {
+        await updateDoc(callRef, data);
+    }
 }
 
 const addIceCandidate = async (callId: string, userId: string, candidate: any) => {
-    await addDoc(collection(db, 'calls', callId, 'iceCandidates'), {
-        userId,
-        candidate,
-    });
+    const callRef = doc(db, 'calls', callId);
+     if ((await getDoc(callRef)).exists()) {
+        await addDoc(collection(callRef, 'iceCandidates'), {
+            userId,
+            candidate,
+        });
+    }
 };
 
 const onIceCandidateAdded = (callId: string, opponentId: string, callback: (candidate: any) => void) => {
