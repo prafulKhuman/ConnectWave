@@ -24,35 +24,45 @@ export function IncomingCallDialog({ call, onAccept, onDecline }: IncomingCallDi
   const ringtoneRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (call && ringtoneRef.current) {
-        ringtoneRef.current.loop = true;
-        ringtoneRef.current.play().catch(e => console.error("Ringtone play error:", e));
-    } else if (!call && ringtoneRef.current) {
-        ringtoneRef.current.pause();
-        ringtoneRef.current.currentTime = 0;
-    }
-
-    // Cleanup on unmount
-    return () => {
-        if (ringtoneRef.current) {
-            ringtoneRef.current.pause();
-            ringtoneRef.current.currentTime = 0;
+    const audioEl = ringtoneRef.current;
+    if (call && audioEl) {
+        audioEl.loop = true;
+        // The play() method returns a Promise which can be used to detect when playback began.
+        // It may be rejected if playback fails, e.g., if the user hasn't interacted with the page yet.
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.error("Ringtone play error:", error);
+                // Autoplay was prevented. We can't do much here but it's good to know.
+            });
         }
     }
+
+    // Cleanup function: This is crucial. It runs when the component unmounts or `call` changes.
+    return () => {
+        if (audioEl) {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+        }
+    };
   }, [call]);
 
   if (!call || !call.caller) return null;
 
   const handleDeclineWithSound = () => {
-    if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
+    const audioEl = ringtoneRef.current;
+    if (audioEl) {
+        audioEl.pause();
+        audioEl.currentTime = 0;
     }
     onDecline();
   }
 
   const handleAcceptWithSound = () => {
-     if (ringtoneRef.current) {
-      ringtoneRef.current.pause();
+     const audioEl = ringtoneRef.current;
+     if (audioEl) {
+        audioEl.pause();
+        audioEl.currentTime = 0;
     }
     onAccept();
   }
