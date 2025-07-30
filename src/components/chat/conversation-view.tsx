@@ -256,23 +256,20 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
         toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
         return;
       }
-      handleSendFile(file);
+      await handleSendFile(file, file.type.startsWith('image/') ? 'image' : (file.type.startsWith('video/') ? 'video' : 'file'));
     }
      if (fileInputRef.current) {
         fileInputRef.current.value = '';
      }
   };
 
-  const handleSendFile = async (file: File) => {
+  const handleSendFile = async (file: File, type: 'image' | 'video' | 'file' | 'audio') => {
       if (!selectedChat) return;
       setIsUploading(true);
 
       const tempId = `temp_${Date.now()}`;
-      let fileType: Message['type'] = 'file';
-      if (file.type.startsWith('image/')) fileType = 'image';
-      else if (file.type.startsWith('video/')) fileType = 'video';
-      else if (file.type.startsWith('audio/')) fileType = 'audio';
-
+      let fileType: Message['type'] = type;
+      
       // Create a local URL for instant preview
       const localUrl = URL.createObjectURL(file);
 
@@ -290,17 +287,13 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
       
       try {
           await uploadFileForChat(selectedChat.id, currentUser.id, file);
-          // The real message will be added by the Firestore listener,
-          // so we just need to remove the temporary one if it's still there.
-          // In most cases, the listener update will be fast enough.
       } catch (error) {
           console.error(error);
           toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not send the file.' });
-          // Remove the temporary message on failure
           setMessages(prev => prev.filter(m => m.id !== tempId));
       } finally {
           setIsUploading(false);
-          URL.revokeObjectURL(localUrl); // Clean up blob URL
+          URL.revokeObjectURL(localUrl);
       }
   }
   
@@ -383,23 +376,21 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
   }
 
   const renderMessageContent = (message: Message) => {
+    const isSending = message.status === 'sending';
     switch (message.type) {
         case 'image':
-            return <img src={message.content} alt={message.fileName || 'image'} className="max-w-full sm:max-w-xs rounded-lg cursor-pointer" onClick={() => window.open(message.content, '_blank')} />;
+            return <img src={message.content} alt={message.fileName || 'image'} className={cn("max-w-full sm:max-w-xs rounded-lg cursor-pointer", isSending && "opacity-60")} onClick={() => !isSending && window.open(message.content, '_blank')} />;
         case 'video':
             return (
                 <div className="relative group">
-                    <video src={message.content} controls className="max-w-full sm:max-w-xs rounded-lg" />
-                    <a href={message.content} download={message.fileName} className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="icon" variant="secondary"><MoreHorizontal/></Button>
-                    </a>
+                    <video src={message.content} controls className={cn("max-w-full sm:max-w-xs rounded-lg", isSending && "opacity-60")} />
                 </div>
             )
         case 'audio':
-            return <audio controls src={message.content} className="w-full max-w-xs" />;
+            return <audio controls src={message.content} className={cn("w-full max-w-xs", isSending && "opacity-60")} />;
         case 'file':
             return (
-                <a href={message.content} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-muted p-2 rounded-lg hover:bg-muted/80 max-w-full">
+                <a href={message.content} target="_blank" rel="noopener noreferrer" className={cn("flex items-center gap-2 bg-muted p-2 rounded-lg hover:bg-muted/80 max-w-full", isSending && "opacity-60 pointer-events-none")}>
                    <FileIcon className="h-6 w-6 flex-shrink-0" />
                    <span className="truncate">{message.fileName || 'View File'}</span>
                 </a>

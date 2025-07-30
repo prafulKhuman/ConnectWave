@@ -9,14 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Camera, Video, Send, X, RefreshCw, Loader2, SwitchCamera } from 'lucide-react';
+import { Camera, Video, Send, X, RefreshCw, Loader2, SwitchCamera, Circle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type CameraViewProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSend: (file: File, type: 'image' | 'video') => void;
+  onSend: (file: File, type: 'image' | 'video') => Promise<void>;
 };
 
 export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
@@ -50,7 +50,7 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
       
       const videoDevices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
       setDevices(videoDevices);
-      if (!deviceId) {
+      if (!deviceId && mediaStream.getVideoTracks().length > 0) {
         setCurrentDeviceId(mediaStream.getVideoTracks()[0].getSettings().deviceId);
       }
 
@@ -71,7 +71,7 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
       // Reset state when opening
       setCapturedMedia(null);
       setMediaFile(null);
-      getPermissions();
+      getPermissions(currentDeviceId);
     } else {
       // Cleanup when closing
       if (stream) {
@@ -155,8 +155,10 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
     const currentIndex = devices.findIndex(d => d.deviceId === currentDeviceId);
     const nextIndex = (currentIndex + 1) % devices.length;
     const nextDevice = devices[nextIndex];
-    setCurrentDeviceId(nextDevice.deviceId);
-    getPermissions(nextDevice.deviceId);
+    if (nextDevice) {
+      setCurrentDeviceId(nextDevice.deviceId);
+      getPermissions(nextDevice.deviceId);
+    }
   }
 
   const handleSend = async () => {
@@ -164,7 +166,7 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
         setSending(true);
         await onSend(mediaFile, mode);
         setSending(false);
-        onClose();
+        onClose(); // Close dialog after sending
     }
   };
 
@@ -196,7 +198,7 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
             </div>
           )}
            <div className="absolute top-2 right-2 flex gap-2">
-             {devices.length > 1 && (
+             {devices.length > 1 && !capturedMedia && (
                 <Button variant="ghost" size="icon" className="text-white hover:bg-black/50" onClick={handleSwitchCamera}>
                     <SwitchCamera />
                 </Button>
@@ -206,7 +208,7 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
              </Button>
            </div>
         </div>
-        <div className="p-4 bg-background flex flex-col items-center justify-center space-y-4">
+        <div className="p-4 bg-background flex flex-col items-center justify-center">
             {capturedMedia ? (
                  <div className="flex w-full justify-around items-center h-[9.5rem]">
                     <Button variant="outline" size="lg" className="rounded-full w-16 h-16" onClick={resetCapture} disabled={sending}>
@@ -226,17 +228,19 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
                            <Video className="mr-2 h-4 w-4"/> Video
                         </Button>
                     </div>
-                    <div className="flex w-full justify-around items-center h-20">
+                    <div className="flex w-full justify-around items-center h-20 pt-2">
                          <Button
                             size="lg"
                             className={cn(
-                                "rounded-full w-20 h-20 border-4 border-white shadow-lg bg-primary/30 hover:bg-primary/50 transition-all", 
-                                isRecording && 'bg-red-500 hover:bg-red-600 animate-pulse'
+                                "rounded-full w-16 h-16 border-4 border-white shadow-lg bg-transparent hover:bg-white/20 transition-all",
                             )}
                             onClick={handleShutterClick}
                             disabled={!stream}
                         >
-                           <div className={cn("w-16 h-16 rounded-full bg-primary/50", isRecording && 'bg-red-500/80 w-8 h-8' )} />
+                           <div className={cn(
+                                "w-full h-full rounded-full bg-primary/80 transition-all duration-200", 
+                                isRecording && 'bg-red-500 scale-75' 
+                            )} />
                         </Button>
                     </div>
                 </>
@@ -246,5 +250,3 @@ export function CameraView({ isOpen, onClose, onSend }: CameraViewProps) {
     </Dialog>
   );
 }
-
-    
