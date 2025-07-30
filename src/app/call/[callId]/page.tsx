@@ -27,6 +27,7 @@ export default function CallPage() {
 
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const ringtoneRef = useRef<HTMLAudioElement>(null);
 
     const {
         peerConnection,
@@ -70,6 +71,21 @@ export default function CallPage() {
         }
     }, [remoteStream]);
 
+    // Ringtone logic
+    useEffect(() => {
+        const isRinging = isInitiator && (connectionStatus === 'connecting' || connectionStatus === 'new');
+        
+        if (ringtoneRef.current) {
+            if (isRinging) {
+                ringtoneRef.current.loop = true;
+                ringtoneRef.current.play().catch(e => console.error("Ringtone play error:", e));
+            } else {
+                ringtoneRef.current.pause();
+                ringtoneRef.current.currentTime = 0;
+            }
+        }
+    }, [isInitiator, connectionStatus]);
+
 
     const handleHangUp = async () => {
         await hangUp();
@@ -86,8 +102,16 @@ export default function CallPage() {
         )
     }
 
+    const getStatusText = () => {
+        if (isInitiator && (connectionStatus === 'connecting' || connectionStatus === 'new')) {
+            return 'Ringing...';
+        }
+        return `${connectionStatus}...`;
+    }
+
     return (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <audio ref={ringtoneRef} src="/ringtone.mp3" preload="auto" />
             <div className="relative h-full w-full bg-cover bg-center transition-all duration-300">
                 {showVideo ? (
                     <>
@@ -106,7 +130,7 @@ export default function CallPage() {
                                 <UserAvatar user={opponentUser} className="h-32 w-32 border-4 border-background shadow-lg" />
                                 <h2 className="text-3xl font-bold">{opponentUser.name}</h2>
                                 <p className="text-lg text-muted-foreground capitalize">
-                                    {connectionStatus}...
+                                    {getStatusText()}
                                 </p>
                             </>
                         )}
