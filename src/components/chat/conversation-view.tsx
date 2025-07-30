@@ -85,7 +85,6 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
   const [dialogState, setDialogState] = React.useState<{ clearChat?: boolean; blockChat?: boolean, deleteMessage?: Message, deleteType?: 'me' | 'everyone' }>({});
   const [actionLoading, setActionLoading] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
-  const [isFeatureUnavailableDialogOpen, setIsFeatureUnavailableDialogOpen] = React.useState(false);
   
   const [editingMessage, setEditingMessage] = React.useState<Message | null>(null);
   const [editContent, setEditContent] = React.useState('');
@@ -426,14 +425,44 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
-              <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="sr-only">Audio Call</span>
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
-              <Video className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span className="sr-only">Video Call</span>
-            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
+                        <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="sr-only">Audio Call</span>
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Voice and video call features are coming soon!
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
+                        <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="sr-only">Video Call</span>
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Voice and video call features are coming soon!
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
@@ -488,7 +517,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsOpen} contact={otherParticipant} />}
+        {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
         <CameraView isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSend={handleSendFile} />
       </header>
        <div className="flex-1 overflow-y-auto">
