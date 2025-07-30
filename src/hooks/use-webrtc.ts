@@ -15,15 +15,14 @@ const servers = {
 };
 
 export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio' | 'video', currentUserId?: string, opponentId?: string) {
-    const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+    const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
-    const [connectionStatus, setConnectionStatus] = useState<'new' | 'connecting' | 'connected' | 'disconnected' | 'failed' | 'closed'>('connecting');
+    const [connectionStatus, setConnectionStatus] = useState<'new' | 'connecting' | 'connected' | 'disconnected' | 'failed' | 'closed'>('new');
     
     const iceCandidateBuffer = useRef<RTCIceCandidateInit[]>([]);
-
 
     const setupStreams = useCallback(async () => {
         try {
@@ -42,21 +41,23 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         setupStreams();
     }, [setupStreams]);
 
-
-    const processIceCandidateBuffer = (pc: RTCPeerConnection) => {
+    const processIceCandidateBuffer = useCallback((pc: RTCPeerConnection) => {
         iceCandidateBuffer.current.forEach(candidate => {
             pc.addIceCandidate(new RTCIceCandidate(candidate));
         });
         iceCandidateBuffer.current = [];
-    };
+    }, []);
 
     const handleHangUp = useCallback(async () => {
-        if (peerConnection) {
-            peerConnection.close();
+        if (peerConnectionRef.current) {
+            peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
         }
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
         }
+        setLocalStream(null);
+        setRemoteStream(null);
         await hangUpCall(callId);
     }, [localStream, callId]);
 
@@ -65,7 +66,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         if (!localStream || !currentUserId || !opponentId) return;
 
         const pc = new RTCPeerConnection(servers);
-        setPeerConnection(pc);
+        peerConnectionRef.current = pc;
 
         localStream.getTracks().forEach(track => {
             pc.addTrack(track, localStream);
@@ -82,58 +83,72 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         };
 
         pc.onconnectionstatechange = () => {
-             setConnectionStatus(pc.connectionState);
-             if (['disconnected', 'closed', 'failed'].includes(pc.connectionState)) {
-                handleHangUp();
+             if (pc.connectionState) {
+                setConnectionStatus(pc.connectionState);
+                if (['disconnected', 'closed', 'failed'].includes(pc.connectionState)) {
+                    handleHangUp();
+                }
              }
         };
+        
+        const callDocRef = doc(db, 'calls', callId);
 
+        const unsubscribeCall = onSnapshot(callDocRef, async (snapshot) => {
+            const data = snapshot.data();
+            if (!data || !peerConnectionRef.current) return;
+
+            const currentPc = peerConnectionRef.current;
+            const isOfferSet = currentPc.remoteDescription && currentPc.remoteDescription.type === 'offer';
+            
+            // Initiator creates the offer
+            if (isInitiator && !data.offer) {
+                const offerDescription = await currentPc.createOffer();
+                await currentPc.setLocalDescription(offerDescription);
+                await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
+            }
+
+            // Callee receives the offer and creates an answer
+            if (!isInitiator && data.offer && !isOfferSet) {
+                const offerDescription = new RTCSessionDescription(data.offer);
+                await currentPc.setRemoteDescription(offerDescription);
+                
+                const answerDescription = await currentPc.createAnswer();
+                await currentPc.setLocalDescription(answerDescription);
+                await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
+                
+                processIceCandidateBuffer(currentPc);
+            }
+
+            // Initiator receives the answer
+            if (isInitiator && data.answer && !currentPc.remoteDescription) {
+                 const answerDescription = new RTCSessionDescription(data.answer);
+                 await currentPc.setRemoteDescription(answerDescription);
+                 processIceCandidateBuffer(currentPc);
+            }
+        });
+        
         const unsubscribeIce = onIceCandidateAdded(callId, opponentId, (candidate) => {
-            if (pc.remoteDescription) {
-                pc.addIceCandidate(new RTCIceCandidate(candidate));
+            if (peerConnectionRef.current?.remoteDescription) {
+                peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
             } else {
                 iceCandidateBuffer.current.push(candidate);
             }
         });
 
-        const callDocRef = doc(db, 'calls', callId);
-
-        const unsubscribeCall = onSnapshot(callDocRef, async (snapshot) => {
-            const data = snapshot.data();
-            if (!data) return;
-
-            const isOfferSet = pc.remoteDescription && pc.remoteDescription.type === 'offer';
-            const isAnswerSet = pc.remoteDescription && pc.remoteDescription.type === 'answer';
-
-            if (isInitiator && !data.offer) {
-                const offerDescription = await pc.createOffer();
-                await pc.setLocalDescription(offerDescription);
-                await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
-            }
-
-            if (!isInitiator && data.offer && !isOfferSet) {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                processIceCandidateBuffer(pc);
-                
-                const answerDescription = await pc.createAnswer();
-                await pc.setLocalDescription(answerDescription);
-                await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
-            }
-
-            if (isInitiator && data.answer && !isAnswerSet) {
-                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-                processIceCandidateBuffer(pc);
-            }
-        });
 
         return () => {
             unsubscribeIce();
             unsubscribeCall();
-            pc.close();
-            localStream.getTracks().forEach(track => track.stop());
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+                peerConnectionRef.current = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
         };
 
-    }, [localStream, callId, isInitiator, currentUserId, opponentId, handleHangUp]);
+    }, [localStream, callId, isInitiator, currentUserId, opponentId, handleHangUp, processIceCandidateBuffer]);
 
 
     const toggleMute = () => {
@@ -154,5 +169,5 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         }
     };
 
-    return { peerConnection, localStream, remoteStream, hangUp: handleHangUp, isMuted, toggleMute, isVideoOff, toggleVideo, connectionStatus };
+    return { peerConnection: peerConnectionRef.current, localStream, remoteStream, hangUp: handleHangUp, isMuted, toggleMute, isVideoOff, toggleVideo, connectionStatus };
 }
