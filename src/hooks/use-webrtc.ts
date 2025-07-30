@@ -98,7 +98,6 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             if (!data || !peerConnectionRef.current) return;
 
             const currentPc = peerConnectionRef.current;
-            const isOfferSet = currentPc.remoteDescription && currentPc.remoteDescription.type === 'offer';
             
             // Initiator creates the offer
             if (isInitiator && !data.offer) {
@@ -108,7 +107,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             }
 
             // Callee receives the offer and creates an answer
-            if (!isInitiator && data.offer && !isOfferSet) {
+            if (!isInitiator && data.offer && currentPc.signalingState === 'stable') {
                 const offerDescription = new RTCSessionDescription(data.offer);
                 await currentPc.setRemoteDescription(offerDescription);
                 
