@@ -44,7 +44,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
                 });
                 setLocalStream(stream);
 
-                const response = await fetch("https://connectwave.metered.live/api/v1/turn/credentials?apiKey=4db5e4414c2df29dfc12669fb662e1c272f1");
+                const response = await fetch("/api/turn");
                 const iceServers = await response.json();
                 
                 const pc = new RTCPeerConnection({ iceServers });
@@ -137,10 +137,10 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             }
         };
 
-        const cleanup = setupWebRTC();
+        const cleanupPromise = setupWebRTC();
 
         return () => {
-            cleanup.then(fn => fn && fn());
+            cleanupPromise.then(cleanup => cleanup && cleanup());
         };
 
     }, [callId, isInitiator, callType, currentUserId, opponentId, handleHangUp, processIceCandidateBuffer]);
