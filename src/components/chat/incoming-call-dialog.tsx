@@ -41,7 +41,7 @@ export function IncomingCallDialog({ call, onAccept, onDecline }: IncomingCallDi
     }
   }, [call]);
 
-  if (!call) return null;
+  if (!call || !call.caller) return null;
 
   const handleDeclineWithSound = () => {
     if (ringtoneRef.current) {

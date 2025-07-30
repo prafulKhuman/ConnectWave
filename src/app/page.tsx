@@ -103,10 +103,12 @@ export default function Home() {
             setCurrentUser(userProfile);
 
             unsubscribeCalls = listenForCall(userProfile.id, async (call) => {
-                if (call && call.status === 'ringing') {
+                // Only set a new incoming call if one isn't already active
+                if (call && call.status === 'ringing' && !incomingCall) {
                     const callerProfile = await getCurrentUser(call.callerId);
                     setIncomingCall({ ...call, caller: callerProfile });
-                } else {
+                } else if (!call) {
+                    // This handles the case where the call is cancelled or expires
                     setIncomingCall(null);
                 }
             });
@@ -133,7 +135,7 @@ export default function Home() {
     });
 
     return cleanup;
-  }, [router]);
+  }, [router, incomingCall]);
 
   // Effect to manage selected chat based on chats array
   React.useEffect(() => {
