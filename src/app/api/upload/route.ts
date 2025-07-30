@@ -1,29 +1,29 @@
 
 import { google } from 'googleapis';
-import formidable from 'formidable';
-import fs from 'fs';
+import fs from 'fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
-import { Writable } from 'stream';
+import path from 'path';
+import os from 'os';
 
 const auth = new google.auth.GoogleAuth({
   keyFile: 'google-service-account.json', // path relative to project root
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 
-async function uploadToDrive(file: formidable.File) {
+async function uploadToDrive(filePath: string, originalFilename: string, mimetype: string) {
     const authClient = await auth.getClient();
     const drive = google.drive({ version: 'v3', auth: authClient });
 
     const folderId = '1ozNSvT4atux8buVv6b1NS2GN3F_MZiq1'; // From Google Drive URL
 
     const fileMetadata = {
-        name: file.originalFilename || 'upload',
+        name: originalFilename,
         parents: [folderId],
     };
 
     const media = {
-        mimeType: file.mimetype || 'application/octet-stream',
-        body: fs.createReadStream(file.filepath),
+        mimeType: mimetype,
+        body: require('fs').createReadStream(filePath),
     };
 
     const driveFile = await drive.files.create({
@@ -40,8 +40,8 @@ async function uploadToDrive(file: formidable.File) {
     await drive.permissions.create({
         fileId: driveFile.data.id,
         requestBody: {
-        role: 'reader',
-        type: 'anyone',
+            role: 'reader',
+            type: 'anyone',
         },
     });
 
@@ -51,24 +51,21 @@ async function uploadToDrive(file: formidable.File) {
 
 export async function POST(req: NextRequest) {
     try {
-        const form = formidable({});
-        
-        const file = await new Promise<formidable.File>((resolve, reject) => {
-             form.parse(req as any, (err, fields, files) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                const uploadedFile = files.file;
-                if (!uploadedFile || Array.isArray(uploadedFile)) {
-                    reject(new Error("No file uploaded or multiple files uploaded"));
-                    return;
-                }
-                resolve(uploadedFile as formidable.File);
-            });
-        });
+        const formData = await req.formData();
+        const file = formData.get('file') as File | null;
 
-        const url = await uploadToDrive(file);
+        if (!file) {
+            return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const tempFilePath = path.join(os.tmpdir(), file.name);
+        await fs.writeFile(tempFilePath, buffer);
+
+        const url = await uploadToDrive(tempFilePath, file.name, file.type);
+        
+        // Clean up the temporary file
+        await fs.unlink(tempFilePath);
 
         return NextResponse.json({ url });
 

@@ -282,22 +282,21 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
       setIsUploading(true);
       
       const tempId = `temp_${Date.now()}`;
+      const tempMessage: Message = {
+        id: tempId,
+        sender: currentUser,
+        content: URL.createObjectURL(file), // Use local URL for preview
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+        timestamp_raw: Date.now(),
+        type: fileType,
+        status: 'sending',
+        fileName: file.name
+      };
+      setMessages(prev => [...prev, tempMessage]);
+      
       try {
-          const tempMessage: Message = {
-            id: tempId,
-            sender: currentUser,
-            content: URL.createObjectURL(file), // Use local URL for preview
-            timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
-            timestamp_raw: Date.now(),
-            type: fileType,
-            status: 'sending',
-            fileName: file.name
-          };
-          setMessages(prev => [...prev, tempMessage]);
-          
           const downloadURL = await uploadFile(file);
           await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
-
       } catch (error) {
           toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
           setMessages(prev => prev.filter(m => m.id !== tempId));
