@@ -58,7 +58,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             localStream.getTracks().forEach(track => track.stop());
         }
         await hangUpCall(callId);
-    }, [peerConnection, localStream, callId]);
+    }, [localStream, callId]);
 
 
     useEffect(() => {
