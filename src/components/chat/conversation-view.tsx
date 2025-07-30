@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe, uploadFileForChat } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -252,17 +252,57 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0] && selectedChat) {
-        setIsFeatureUnavailableDialogOpen(true);
-        // Reset file input
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+      const file = event.target.files[0];
+      if (file.size > MAX_FILE_SIZE) {
+        toast({ variant: 'destructive', title: 'File Too Large', description: `File size cannot exceed ${MAX_FILE_SIZE / 1024 / 1024}MB.` });
+        return;
+      }
+      handleSendFile(file);
     }
+     if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+     }
   };
 
   const handleSendFile = async (file: File) => {
       if (!selectedChat) return;
-      setIsFeatureUnavailableDialogOpen(true);
+      setIsUploading(true);
+
+      const tempId = `temp_${Date.now()}`;
+      let fileType: Message['type'] = 'file';
+      if (file.type.startsWith('image/')) fileType = 'image';
+      else if (file.type.startsWith('video/')) fileType = 'video';
+      else if (file.type.startsWith('audio/')) fileType = 'audio';
+
+      // Create a local URL for instant preview
+      const localUrl = URL.createObjectURL(file);
+
+      // Add a temporary message to the UI
+      setMessages(prev => [...prev, {
+          id: tempId,
+          sender: currentUser,
+          content: localUrl,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp_raw: Date.now(),
+          type: fileType,
+          status: 'sending',
+          fileName: file.name
+      }]);
+      
+      try {
+          await uploadFileForChat(selectedChat.id, currentUser.id, file);
+          // The real message will be added by the Firestore listener,
+          // so we just need to remove the temporary one if it's still there.
+          // In most cases, the listener update will be fast enough.
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not send the file.' });
+          // Remove the temporary message on failure
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+      } finally {
+          setIsUploading(false);
+          URL.revokeObjectURL(localUrl); // Clean up blob URL
+      }
   }
   
   const handleClearChat = async () => {
@@ -370,25 +410,8 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     }
   }
 
-  const ComingSoonDialog = (
-    <AlertDialogContent>
-        <AlertDialogHeader>
-            <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
-            <AlertDialogDescription>
-                This feature is currently under development and will be available soon. We appreciate your patience and encourage you to explore other available features in the meantime. Thank you for your understanding!
-            </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsFeatureUnavailableDialogOpen(false)}>OK</AlertDialogAction>
-        </AlertDialogFooter>
-    </AlertDialogContent>
-  );
-
   return (
     <div className="flex h-full flex-col chat-background">
-      <AlertDialog open={isFeatureUnavailableDialogOpen} onOpenChange={setIsFeatureUnavailableDialogOpen}>
-        {ComingSoonDialog}
-      </AlertDialog>
       <header className="flex flex-shrink-0 items-center justify-between border-b bg-card p-2 sm:p-3">
         <div className="flex items-center gap-2 sm:gap-3">
           {isMobile && (
@@ -465,7 +488,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsViewContactOpen} contact={otherParticipant} />}
+        {otherParticipant && <ViewContactDialog isOpen={isViewContactOpen} setIsOpen={setIsOpen} contact={otherParticipant} />}
         <CameraView isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onSend={handleSendFile} />
       </header>
        <div className="flex-1 overflow-y-auto">
@@ -590,7 +613,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                         </PopoverContent>
                     </Popover>
                     
-                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsCameraOpen(true)}>
                        <Camera className="h-5 w-5" />
                      </Button>
                 </div>

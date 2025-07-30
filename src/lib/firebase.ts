@@ -579,6 +579,45 @@ const onTypingStatusChange = (chatId: string, callback: (typingStatus: any) => v
 };
 
 
+// Cloudinary Upload
+const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        const errorDetails = await res.json().catch(() => ({ error: 'File upload failed' }));
+        console.error('Upload API Error:', errorDetails);
+        throw new Error(errorDetails.error || 'File upload failed');
+    }
+    
+    const data = await res.json();
+    return data.secure_url;
+}
+
+const uploadAvatar = async (file: File) => {
+    return await uploadFile(file);
+}
+
+const uploadFileForChat = async (chatId: string, senderId: string, file: File) => {
+    const url = await uploadFile(file);
+
+    let type: Message['type'] = 'file';
+    if (file.type.startsWith('image/')) {
+        type = 'image';
+    } else if (file.type.startsWith('video/')) {
+        type = 'video';
+    } else if (file.type.startsWith('audio/')) {
+        type = 'audio';
+    }
+
+    await sendMessageInChat(chatId, senderId, url, type, file.name);
+}
+
+
 export { 
     app, 
     auth, 
@@ -619,5 +658,7 @@ export {
     onUserStatusChange,
     togglePinChat,
     setUserTypingStatus,
-    onTypingStatusChange
+    onTypingStatusChange,
+    uploadFileForChat,
+    uploadAvatar
 };

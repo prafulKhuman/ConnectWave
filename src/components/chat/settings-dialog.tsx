@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Contact as ContactType } from '@/lib/data';
 import { UserAvatar } from './user-avatar';
 import { NewGroupDialog } from './new-group-dialog';
-import { updateUserProfile, findUserByEmail, createChatWithUser, hashValue, compareValue } from '@/lib/firebase';
+import { updateUserProfile, findUserByEmail, createChatWithUser, hashValue, compareValue, uploadAvatar } from '@/lib/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,7 +57,6 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
   const [pinLoading, setPinLoading] = useState(false);
   const [quickChatLoading, setQuickChatLoading] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [isFeatureUnavailableDialogOpen, setIsFeatureUnavailableDialogOpen] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -78,7 +77,10 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setIsFeatureUnavailableDialogOpen(true);
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
     }
   };
   
@@ -86,8 +88,12 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     if (!currentUser) return;
     setProfileLoading(true);
     try {
-      await updateUserProfile(currentUser.id, { name });
-      toast({ title: "Profile Updated", description: "Your name has been successfully updated." });
+      let avatarUrl = currentUser.avatar;
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar(avatarFile);
+      }
+      await updateUserProfile(currentUser.id, { name, avatar: avatarUrl });
+      toast({ title: "Profile Updated", description: "Your profile has been successfully updated." });
     } catch (error) {
       toast({ variant: 'destructive', title: "Error", description: "Failed to update profile." });
     } finally {
@@ -197,20 +203,6 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
     setIsOpen(false);
   }
 
-  const ComingSoonDialog = (
-    <AlertDialogContent>
-        <AlertDialogHeader>
-            <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
-            <AlertDialogDescription>
-                This feature is currently under development and will be available soon. We appreciate your patience and encourage you to explore other available features in the meantime. Thank you for your understanding!
-            </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsFeatureUnavailableDialogOpen(false)}>OK</AlertDialogAction>
-        </AlertDialogFooter>
-    </AlertDialogContent>
-  );
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -220,9 +212,6 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-         <AlertDialog open={isFeatureUnavailableDialogOpen} onOpenChange={setIsFeatureUnavailableDialogOpen}>
-            {ComingSoonDialog}
-         </AlertDialog>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
