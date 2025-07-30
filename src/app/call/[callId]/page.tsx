@@ -30,7 +30,6 @@ export default function CallPage() {
     const ringtoneRef = useRef<HTMLAudioElement>(null);
 
     const {
-        peerConnection,
         localStream,
         remoteStream,
         hangUp,
@@ -85,6 +84,12 @@ export default function CallPage() {
             }
         }
     }, [isInitiator, connectionStatus]);
+
+    useEffect(() => {
+      if (connectionStatus === 'failed' || connectionStatus === 'closed' || connectionStatus === 'disconnected') {
+        router.push('/');
+      }
+    }, [connectionStatus, router]);
 
 
     const handleHangUp = async () => {

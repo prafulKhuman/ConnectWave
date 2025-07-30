@@ -18,32 +18,55 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
     const handleHangUp = useCallback(async () => {
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
         }
-        // Access localStream via its state setter's functional update or ref if needed, but for cleanup it's often okay to assume it's there.
-        // Or better yet, manage the stream stopping inside the cleanup effect.
-        await hangUpCall(callId);
-    }, [callId]);
+        
+        // Stop local stream tracks
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            setLocalStream(null);
+        }
+        if(remoteStream) {
+            remoteStream.getTracks().forEach(track => track.stop());
+            setRemoteStream(null);
+        }
 
-    const processIceCandidateBuffer = useCallback((pc: RTCPeerConnection) => {
-        iceCandidateBuffer.current.forEach(candidate => {
-            pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding buffered ICE candidate", e));
-        });
-        iceCandidateBuffer.current = [];
+        await hangUpCall(callId);
+    }, [callId, localStream, remoteStream]);
+
+    const processIceCandidateBuffer = useCallback(() => {
+        if (peerConnectionRef.current) {
+            iceCandidateBuffer.current.forEach(candidate => {
+                peerConnectionRef.current!.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding buffered ICE candidate", e));
+            });
+            iceCandidateBuffer.current = [];
+        }
     }, []);
 
 
     useEffect(() => {
+        let isCancelled = false;
+        let unsubscribeCall: () => void = () => {};
+        let unsubscribeIce: () => void = () => {};
+
         const setupWebRTC = async () => {
-            if (!currentUserId || !opponentId) return;
+            if (!currentUserId || !opponentId || isCancelled) return;
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: callType === 'video',
                     audio: true,
                 });
+                if (isCancelled) {
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
                 setLocalStream(stream);
 
-                const response = await fetch("/api/turn");
+                const response = await fetch('/api/turn');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch TURN credentials');
+                }
                 const iceServers = await response.json();
                 
                 const pc = new RTCPeerConnection({ iceServers });
@@ -54,64 +77,74 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
                 });
 
                 pc.ontrack = event => {
-                    setRemoteStream(event.streams[0]);
+                    if (!isCancelled) {
+                        setRemoteStream(event.streams[0]);
+                    }
                 };
 
                 pc.onicecandidate = event => {
-                    if (event.candidate) {
+                    if (event.candidate && currentUserId) {
                         addIceCandidate(callId, currentUserId, event.candidate.toJSON());
                     }
                 };
 
                 pc.onconnectionstatechange = () => {
-                    if (pc.connectionState) {
+                    if (pc.connectionState && !isCancelled) {
                         setConnectionStatus(pc.connectionState);
                         if (['disconnected', 'closed', 'failed'].includes(pc.connectionState)) {
-                            handleHangUp();
+                             // Use a separate async function for cleanup if needed
                         }
                     }
                 };
                  pc.onsignalingstatechange = () => {
                     if(pc.signalingState) {
-                        console.log("Signaling state:", pc.signalingState);
+                        // console.log("Signaling state:", pc.signalingState);
                     }
                 };
                 
                 const callDocRef = doc(db, 'calls', callId);
 
-                const unsubscribeCall = onSnapshot(callDocRef, async (snapshot) => {
+                unsubscribeCall = onSnapshot(callDocRef, async (snapshot) => {
                     const data = snapshot.data();
-                    if (!data || !peerConnectionRef.current) return;
+                    if (!data || !peerConnectionRef.current || isCancelled) return;
 
                     const currentPc = peerConnectionRef.current;
                     
-                    if (isInitiator && !data.offer) {
-                         if (currentPc.signalingState === 'stable') {
-                            const offerDescription = await currentPc.createOffer();
-                            await currentPc.setLocalDescription(offerDescription);
-                            await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
-                        }
-                    }
-                    
-                    if (data.offer && !isInitiator && !currentPc.remoteDescription) {
+                    if (data.offer) {
                         const offerDescription = new RTCSessionDescription(data.offer);
-                        await currentPc.setRemoteDescription(offerDescription);
+                        if (currentPc.signalingState !== 'stable' && currentPc.signalingState !== 'have-local-offer') {
+                           // console.log(`Cannot set remote offer in state ${currentPc.signalingState}`);
+                            return;
+                        }
                         
-                        const answerDescription = await currentPc.createAnswer();
-                        await currentPc.setLocalDescription(answerDescription);
-                        await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
-                        
-                        processIceCandidateBuffer(currentPc);
+                        if (currentPc.remoteDescription === null) {
+                            await currentPc.setRemoteDescription(offerDescription);
+                        }
+
+                        if (!isInitiator) {
+                             if(currentPc.signalingState === 'have-remote-offer') {
+                                const answerDescription = await currentPc.createAnswer();
+                                await currentPc.setLocalDescription(answerDescription);
+                                await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
+                             }
+                        }
+                        processIceCandidateBuffer();
                     }
 
                     if (data.answer && currentPc.remoteDescription === null) {
                          const answerDescription = new RTCSessionDescription(data.answer);
                          await currentPc.setRemoteDescription(answerDescription);
-                         processIceCandidateBuffer(currentPc);
+                         processIceCandidateBuffer();
                     }
                 });
                 
-                const unsubscribeIce = onIceCandidateAdded(callId, opponentId, (candidate) => {
+                if (isInitiator) {
+                     const offerDescription = await pc.createOffer();
+                     await pc.setLocalDescription(offerDescription);
+                     await updateCallData(callId, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
+                }
+
+                unsubscribeIce = onIceCandidateAdded(callId, opponentId, (candidate) => {
                     if (peerConnectionRef.current?.remoteDescription) {
                         peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.error("Error adding ICE candidate", e));
                     } else {
@@ -119,30 +152,33 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
                     }
                 });
 
-                return () => {
-                    unsubscribeIce();
-                    unsubscribeCall();
-                    if (peerConnectionRef.current) {
-                        peerConnectionRef.current.close();
-                    }
-                    if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                    }
-                };
-
             } catch (error) {
                 console.error("Error setting up WebRTC:", error);
-                handleHangUp();
+                // hangUpCall(callId); // Let the caller handle this
             }
         };
 
-        const cleanupPromise = setupWebRTC();
+        setupWebRTC();
 
         return () => {
-            cleanupPromise.then(cleanup => cleanup && cleanup());
+            isCancelled = true;
+            if (unsubscribeCall) unsubscribeCall();
+            if (unsubscribeIce) unsubscribeIce();
+
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+                peerConnectionRef.current = null;
+            }
+             if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if(remoteStream) {
+                remoteStream.getTracks().forEach(track => track.stop());
+            }
         };
 
-    }, [callId, isInitiator, callType, currentUserId, opponentId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [callId, isInitiator, callType, currentUserId, opponentId, processIceCandidateBuffer]);
 
 
     const toggleMute = () => {
