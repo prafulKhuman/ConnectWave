@@ -15,13 +15,12 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
     
     const iceCandidateBuffer = useRef<RTCIceCandidateInit[]>([]);
 
-    const handleHangUp = useCallback(async () => {
+    const hangUp = useCallback(async () => {
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
         
-        // Stop local stream tracks
         if (localStream) {
             localStream.getTracks().forEach(track => track.stop());
             setLocalStream(null);
@@ -92,7 +91,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
                     if (pc.connectionState && !isCancelled) {
                         setConnectionStatus(pc.connectionState);
                         if (['disconnected', 'closed', 'failed'].includes(pc.connectionState)) {
-                             // Use a separate async function for cleanup if needed
+                             hangUp();
                         }
                     }
                 };
@@ -110,31 +109,27 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
 
                     const currentPc = peerConnectionRef.current;
                     
-                    if (data.offer) {
-                        const offerDescription = new RTCSessionDescription(data.offer);
-                        if (currentPc.signalingState !== 'stable' && currentPc.signalingState !== 'have-local-offer') {
-                           // console.log(`Cannot set remote offer in state ${currentPc.signalingState}`);
-                            return;
+                    if (data.offer && !isInitiator && !currentPc.remoteDescription) {
+                        try {
+                            await currentPc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                            const answerDescription = await currentPc.createAnswer();
+                            await currentPc.setLocalDescription(answerDescription);
+                            await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
+                            processIceCandidateBuffer();
+                        } catch (error) {
+                            console.error("Error setting remote offer and creating answer:", error);
                         }
-                        
-                        if (currentPc.remoteDescription === null) {
-                            await currentPc.setRemoteDescription(offerDescription);
-                        }
-
-                        if (!isInitiator) {
-                             if(currentPc.signalingState === 'have-remote-offer') {
-                                const answerDescription = await currentPc.createAnswer();
-                                await currentPc.setLocalDescription(answerDescription);
-                                await updateCallData(callId, { answer: { sdp: answerDescription.sdp, type: answerDescription.type } });
-                             }
-                        }
-                        processIceCandidateBuffer();
                     }
 
-                    if (data.answer && currentPc.remoteDescription === null) {
-                         const answerDescription = new RTCSessionDescription(data.answer);
-                         await currentPc.setRemoteDescription(answerDescription);
-                         processIceCandidateBuffer();
+
+                    if (data.answer && isInitiator && !currentPc.remoteDescription) {
+                        try {
+                            const answerDescription = new RTCSessionDescription(data.answer);
+                            await currentPc.setRemoteDescription(answerDescription);
+                            processIceCandidateBuffer();
+                        } catch(error) {
+                            console.error("Error setting remote answer:", error);
+                        }
                     }
                 });
                 
@@ -154,7 +149,7 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
 
             } catch (error) {
                 console.error("Error setting up WebRTC:", error);
-                // hangUpCall(callId); // Let the caller handle this
+                hangUp();
             }
         };
 
@@ -164,21 +159,11 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
             isCancelled = true;
             if (unsubscribeCall) unsubscribeCall();
             if (unsubscribeIce) unsubscribeIce();
-
-            if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-                peerConnectionRef.current = null;
-            }
-             if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-            if(remoteStream) {
-                remoteStream.getTracks().forEach(track => track.stop());
-            }
+            hangUp();
         };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [callId, isInitiator, callType, currentUserId, opponentId, processIceCandidateBuffer]);
+    }, [callId, isInitiator, callType, currentUserId, opponentId]);
 
 
     const toggleMute = () => {
@@ -199,5 +184,5 @@ export function useWebRTC(callId: string, isInitiator: boolean, callType: 'audio
         }
     };
 
-    return { peerConnection: peerConnectionRef.current, localStream, remoteStream, hangUp: handleHangUp, isMuted, toggleMute, isVideoOff, toggleVideo, connectionStatus };
+    return { localStream, remoteStream, hangUp, isMuted, toggleMute, isVideoOff, toggleVideo, connectionStatus };
 }
