@@ -258,7 +258,7 @@ export function SettingsDialog({ currentUser }: SettingsDialogProps) {
                     <UserAvatar user={{ ...currentUser, avatar: avatarPreview }} className="h-24 w-24" />
                       <Label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-secondary p-1.5 rounded-full cursor-pointer hover:bg-muted">
                           <Upload className="h-4 w-4" />
-                          <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} onClick={(e) => { e.preventDefault(); setIsFeatureUnavailableDialogOpen(true); }} />
+                          <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
                       </Label>
                 </div>
             </div>

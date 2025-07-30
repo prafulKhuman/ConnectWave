@@ -610,13 +610,13 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                         </PopoverContent>
                     </Popover>
                     
-                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsCameraOpen(true)}>
                        <Camera className="h-5 w-5" />
                      </Button>
                 </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setIsFeatureUnavailableDialogOpen(true)}>
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => fileInputRef.current?.click()}>
                   {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                 </Button>
                 <Textarea
@@ -638,5 +638,3 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     </div>
   );
 }
-
-    

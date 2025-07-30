@@ -402,27 +402,29 @@ const createChatWithUser = async (currentUserId: string, otherUserId: string) =>
     }
 };
 
+const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        throw new Error('File upload failed');
+    }
+
+    const data = await res.json();
+    return data.url;
+}
+
 const uploadAvatar = async (userId: string, file: File): Promise<string> => {
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-    const storageRef = ref(storage, `avatars/${userId}/${fileName}`);
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+    return await uploadFile(file);
 };
 
 const uploadFileForChat = async (chatId: string, file: File, type: Message['type']): Promise<string> => {
-    let folder = 'chat-files';
-    if (type === 'image') folder = 'chat-images';
-    if (type === 'video') folder = 'chat-videos';
-    if (type === 'audio') folder = 'chat-audio';
-
-    const fileExtension = file.name.split('.').pop();
-    const fileName = `${uuidv4()}.${fileExtension}`;
-    const storageRef = ref(storage, `${folder}/${chatId}/${fileName}`);
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+    return await uploadFile(file);
 }
 
 const clearChatHistory = async (chatId: string) => {
