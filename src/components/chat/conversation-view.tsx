@@ -281,34 +281,28 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
       
       setIsUploading(true);
       
-      // Create a temporary message for instant UI feedback
       const tempId = `temp_${Date.now()}`;
-      const tempMessage: Message = {
-        id: tempId,
-        sender: currentUser,
-        content: URL.createObjectURL(file), // Use local URL for preview
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
-        timestamp_raw: Date.now(),
-        type: fileType,
-        status: 'sending',
-        fileName: file.name
-      };
-      setMessages(prev => [...prev, tempMessage]);
-
       try {
+          const tempMessage: Message = {
+            id: tempId,
+            sender: currentUser,
+            content: URL.createObjectURL(file), // Use local URL for preview
+            timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+            timestamp_raw: Date.now(),
+            type: fileType,
+            status: 'sending',
+            fileName: file.name
+          };
+          setMessages(prev => [...prev, tempMessage]);
+          
           const downloadURL = await uploadFile(file);
-          // Send the message with the real URL
           await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
 
       } catch (error) {
           toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
-          // Remove the temporary message on failure
           setMessages(prev => prev.filter(m => m.id !== tempId));
       } finally {
           setIsUploading(false);
-          // The temporary message will be replaced by the real one from Firestore listener
-          // We can remove it here just in case listener is slow, but it might cause a flicker.
-          // Let's rely on the listener to replace it.
       }
   }
   
