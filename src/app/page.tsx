@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, compareValue, hashValue, reauthenticateUser, updateUserProfile, updateMessagesStatus } from '@/lib/firebase';
+import { auth, onAuthUserChanged, getCurrentUser, getChatsForUser, manageUserPresence, compareValue, hashValue, reauthenticateUser, updateUserProfile, updateMessagesStatus, listenForCall, answerCall, hangUpCall } from '@/lib/firebase';
 import { User } from 'firebase/auth';
 import { ChatList } from '@/components/chat/chat-list';
 import { ConversationView } from '@/components/chat/conversation-view';
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { rtdb } from '@/lib/firebase';
 import { ref, set as rtdbSet, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { IncomingCallDialog } from '@/components/chat/incoming-call-dialog';
 
 
 export default function Home() {
@@ -46,6 +47,8 @@ export default function Home() {
   const [confirmNewPin, setConfirmNewPin] = React.useState('');
   const [forgotPinLoading, setForgotPinLoading] = React.useState(false);
   const [isTabVisible, setIsTabVisible] = React.useState(true);
+  const [incomingCall, setIncomingCall] = React.useState<any | null>(null);
+
   const isMobile = useIsMobile();
 
 
@@ -72,16 +75,21 @@ export default function Home() {
     let unsubscribeAuth: (() => void) | undefined;
     let unsubscribeChats: (() => void) | undefined;
     let unsubscribePresence: (() => void) | undefined;
+    let unsubscribeCalls: (() => void) | undefined;
+
 
     const cleanup = () => {
         if (unsubscribeAuth) unsubscribeAuth();
         if (unsubscribeChats) unsubscribeChats();
         if (unsubscribePresence) unsubscribePresence();
+        if (unsubscribeCalls) unsubscribeCalls();
     };
 
     unsubscribeAuth = onAuthUserChanged(async (authUser) => {
         if (unsubscribeChats) unsubscribeChats();
         if (unsubscribePresence) unsubscribePresence();
+        if (unsubscribeCalls) unsubscribeCalls();
+
 
         if (authUser) {
             setUser(authUser);
@@ -93,6 +101,16 @@ export default function Home() {
                 return;
             }
             setCurrentUser(userProfile);
+
+            unsubscribeCalls = listenForCall(userProfile.id, async (call) => {
+                if (call && call.offer) {
+                    const callerProfile = await getCurrentUser(call.callerId);
+                    setIncomingCall({ ...call, caller: callerProfile });
+                } else {
+                    setIncomingCall(null);
+                }
+            });
+
 
             if (userProfile?.pin) {
                 setIsPinModalOpen(true);
@@ -272,6 +290,21 @@ export default function Home() {
     }
   }
 
+  const handleAcceptCall = async () => {
+    if (!incomingCall || !currentUser) return;
+    await answerCall(incomingCall.id, currentUser.id);
+    const opponentId = incomingCall.callerId;
+    router.push(`/call/${incomingCall.id}?type=${incomingCall.type}&opponent=${opponentId}`);
+    setIncomingCall(null);
+  };
+
+  const handleDeclineCall = async () => {
+    if (!incomingCall) return;
+    await hangUpCall(incomingCall.id);
+    setIncomingCall(null);
+  };
+
+
   if (loading && !isAppLocked) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -285,6 +318,12 @@ export default function Home() {
   
   return (
     <main className="h-screen w-full bg-background">
+      <IncomingCallDialog 
+        call={incomingCall} 
+        onAccept={handleAcceptCall} 
+        onDecline={handleDeclineCall} 
+      />
+
       <Dialog open={isPinModalOpen} onOpenChange={setIsPinModalOpen}>
         <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()} hideCloseButton>
             <DialogHeader>
@@ -366,7 +405,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
     
-      <div className={cn('h-full w-full transition-all duration-300', isAppLocked && 'blur-sm pointer-events-none')}>
+      <div className={cn('h-full w-full transition-all duration-300', (isAppLocked || !!incomingCall) && 'blur-sm pointer-events-none')}>
         <SidebarProvider>
             <div className="h-screen w-full flex">
             {currentUser && !isAppLocked && (

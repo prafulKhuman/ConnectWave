@@ -632,6 +632,89 @@ const uploadFileForChat = async (chatId: string, senderId: string, file: File) =
 }
 
 
+// WebRTC Calling Functions
+
+const initiateCall = async (callerId: string, calleeId: string, type: 'audio' | 'video'): Promise<string> => {
+    const callDocRef = await addDoc(collection(db, 'calls'), {
+        callerId,
+        calleeId,
+        type,
+        status: 'ringing',
+        createdAt: serverTimestamp(),
+    });
+
+    // Timeout to hang up if not answered
+    setTimeout(() => {
+        getDoc(callDocRef).then(doc => {
+            if (doc.exists() && doc.data().status === 'ringing') {
+                hangUpCall(doc.id);
+            }
+        });
+    }, 30000); // 30 seconds
+
+    return callDocRef.id;
+};
+
+const answerCall = async (callId: string, calleeId: string) => {
+    await updateDoc(doc(db, 'calls', callId), { status: 'answered', calleeId });
+};
+
+
+const listenForCall = (userId: string, callback: (call: any) => void) => {
+    const q = query(collection(db, 'calls'), where('calleeId', '==', userId), where('status', '==', 'ringing'));
+    return onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+            const callDoc = snapshot.docs[0];
+            callback({ id: callDoc.id, ...callDoc.data() });
+        } else {
+            callback(null);
+        }
+    });
+};
+
+const hangUpCall = async (callId: string) => {
+    const callDocRef = doc(db, 'calls', callId);
+    const callDoc = await getDoc(callDocRef);
+    if(callDoc.exists()) {
+        const iceCandidatesCollectionRef = collection(callDocRef, 'iceCandidates');
+        const iceCandidatesSnapshot = await getDocs(iceCandidatesCollectionRef);
+        const batch = writeBatch(db);
+        iceCandidatesSnapshot.forEach(doc => batch.delete(doc.ref));
+        batch.delete(callDocRef);
+        await batch.commit();
+    }
+};
+
+const updateCallData = async (callId: string, data: any) => {
+    await updateDoc(doc(db, 'calls', callId), data);
+}
+
+const addIceCandidate = async (callId: string, userId: string, candidate: any) => {
+    await addDoc(collection(db, 'calls', callId, 'iceCandidates'), {
+        userId,
+        candidate,
+    });
+};
+
+const onIceCandidateAdded = (callId: string, opponentId: string, callback: (candidate: any) => void) => {
+    const q = query(collection(db, 'calls', callId, 'iceCandidates'), where('userId', '==', opponentId));
+    return onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+                callback(change.doc.data().candidate);
+            }
+        });
+    });
+};
+
+const listenForCallUpdates = (callId: string, callback: (data: any) => void) => {
+    return onSnapshot(doc(db, 'calls', callId), (snapshot) => {
+        callback(snapshot.data());
+    });
+};
+
+
+
 export { 
     app, 
     auth, 
@@ -674,5 +757,13 @@ export {
     setUserTypingStatus,
     onTypingStatusChange,
     uploadFileForChat,
-    uploadAvatar
+    uploadAvatar,
+    initiateCall,
+    answerCall,
+    listenForCall,
+    hangUpCall,
+    updateCallData,
+    addIceCandidate,
+    onIceCandidateAdded,
+    listenForCallUpdates
 };

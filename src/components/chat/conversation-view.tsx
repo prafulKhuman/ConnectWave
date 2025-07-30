@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe, uploadFileForChat } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe, uploadFileForChat, initiateCall } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -359,6 +359,21 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     setEditContent('');
   };
 
+  const handleInitiateCall = async (type: 'audio' | 'video') => {
+    if (!selectedChat || !otherParticipant) return;
+    try {
+        const callId = await initiateCall(currentUser.id, otherParticipant.id, type);
+        router.push(`/call/${callId}?initiator=true&type=${type}&opponent=${otherParticipant.id}`);
+    } catch (error) {
+        console.error("Failed to initiate call", error);
+        toast({
+            variant: 'destructive',
+            title: 'Call Failed',
+            description: 'Could not initiate the call. Please try again.'
+        });
+    }
+  };
+
 
   const isChatBlocked = selectedChat?.blocked?.isBlocked;
   const amIBlocked = isChatBlocked && selectedChat?.blocked?.by !== currentUser.id;
@@ -416,44 +431,14 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
-                        <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="sr-only">Audio Call</span>
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Voice and video call features are coming soon!
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction>OK</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
-                        <Video className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span className="sr-only">Video Call</span>
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Voice and video call features are coming soon!
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction>OK</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => handleInitiateCall('audio')} disabled={didIBlock || amIBlocked}>
+                <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="sr-only">Audio Call</span>
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={() => handleInitiateCall('video')} disabled={didIBlock || amIBlocked}>
+                <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="sr-only">Video Call</span>
+            </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9">
