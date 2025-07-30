@@ -253,7 +253,7 @@ const getChatsForUser = (userId: string, callback: (chats: Chat[]) => void) => {
     return unsubscribe;
 };
 
-const getMessagesForChat = (chatId: string, callback: (messages: Message[], participantsMap: Map<string, Contact>) => void) => {
+const getMessagesForChat = (chatId: string, callback: (messages: Message[]) => void) => {
     const participantsMap = new Map<string, Contact>();
 
     // First get participants to build the map
@@ -294,8 +294,8 @@ const getMessagesForChat = (chatId: string, callback: (messages: Message[], part
                     fileName: data.fileName || '',
                     deletedFor: data.deletedFor || [],
                 } as Message;
-            });
-            callback(messages, participantsMap);
+            }).filter(m => m.status !== 'sending'); // Don't show local-only messages
+            callback(messages);
         });
 
         // This is a bit tricky, ideally we'd return both unsubscribers
@@ -412,7 +412,9 @@ const uploadFile = async (file: File): Promise<string> => {
     });
 
     if (!res.ok) {
-        throw new Error('File upload failed');
+        const errorDetails = await res.json().catch(() => ({ error: 'File upload failed' }));
+        console.error('Upload API Error:', errorDetails);
+        throw new Error(errorDetails.error || 'File upload failed');
     }
 
     const data = await res.json();
@@ -422,10 +424,6 @@ const uploadFile = async (file: File): Promise<string> => {
 const uploadAvatar = async (userId: string, file: File): Promise<string> => {
     return await uploadFile(file);
 };
-
-const uploadFileForChat = async (chatId: string, file: File, type: Message['type']): Promise<string> => {
-    return await uploadFile(file);
-}
 
 const clearChatHistory = async (chatId: string) => {
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -636,7 +634,7 @@ export {
     clearChatHistory,
     deleteChat,
     updateBlockStatus,
-    uploadFileForChat,
+    uploadFile,
     hashValue,
     compareValue,
     reauthenticateUser,

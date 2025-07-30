@@ -17,7 +17,7 @@ export type Message = {
   timestamp: string;
   timestamp_raw: number; // for sorting
   type: 'text' | 'image' | 'video' | 'audio' | 'file';
-  status: 'sent' | 'delivered' | 'read';
+  status: 'sending' | 'sent' | 'delivered' | 'read';
   edited?: boolean;
   fileName?: string; // e.g., 'document.pdf'
   deletedFor?: string[]; // Array of user IDs for whom the message is deleted

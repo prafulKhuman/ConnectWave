@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFileForChat, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
+import { getMessagesForChat, sendMessageInChat, clearChatHistory, updateBlockStatus, uploadFile, deleteMessage, updateMessage, updateMessagesStatus, setUserTypingStatus, onTypingStatusChange, deleteMessageForMe } from '@/lib/firebase';
 import { ViewContactDialog } from './view-contact-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -254,6 +254,10 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
     if (event.target.files && event.target.files[0] && selectedChat) {
         const file = event.target.files[0];
         handleSendFile(file);
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
   };
 
@@ -276,14 +280,35 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
       }
       
       setIsUploading(true);
+      
+      // Create a temporary message for instant UI feedback
+      const tempId = `temp_${Date.now()}`;
+      const tempMessage: Message = {
+        id: tempId,
+        sender: currentUser,
+        content: URL.createObjectURL(file), // Use local URL for preview
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true }),
+        timestamp_raw: Date.now(),
+        type: fileType,
+        status: 'sending',
+        fileName: file.name
+      };
+      setMessages(prev => [...prev, tempMessage]);
+
       try {
-          const downloadURL = await uploadFileForChat(selectedChat.id, file, fileType);
+          const downloadURL = await uploadFile(file);
+          // Send the message with the real URL
           await sendMessageInChat(selectedChat.id, currentUser.id, downloadURL, fileType, file.name);
 
       } catch (error) {
           toast({ variant: 'destructive', title: 'Upload Failed', description: 'Failed to upload and send file.' });
+          // Remove the temporary message on failure
+          setMessages(prev => prev.filter(m => m.id !== tempId));
       } finally {
           setIsUploading(false);
+          // The temporary message will be replaced by the real one from Firestore listener
+          // We can remove it here just in case listener is slow, but it might cause a flicker.
+          // Let's rely on the listener to replace it.
       }
   }
   
@@ -504,6 +529,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                     <div
                       className={cn(
                         'relative max-w-[80%] sm:max-w-md lg:max-w-lg rounded-lg px-3 py-2',
+                        message.status === 'sending' && 'opacity-70',
                         message.sender?.id === currentUser.id
                           ? 'bg-primary/80 text-primary-foreground'
                           : 'bg-card shadow-sm'
@@ -513,10 +539,11 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                       <div className="flex items-center justify-end gap-2 mt-1 text-xs text-muted-foreground/80">
                           {message.edited && <span>Edited</span>}
                           <time>{message.timestamp}</time>
-                          {message.sender?.id === currentUser.id && <MessageStatus status={message.status} />}
+                          {message.sender?.id === currentUser.id && message.status === 'sending' && <Loader2 className="h-4 w-4 animate-spin" />}
+                          {message.sender?.id === currentUser.id && message.status !== 'sending' && <MessageStatus status={message.status} />}
                       </div>
 
-                      {message.sender?.id === currentUser.id && (
+                      {message.sender?.id === currentUser.id && message.status !== 'sending' && (
                            <div className="absolute top-1/2 -translate-y-1/2 -left-12 opacity-0 group-hover:opacity-100 transition-opacity">
                                <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -616,7 +643,7 @@ export function ConversationView({ selectedChat, currentUser, isTabVisible, onBa
                 </div>
 
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(',')} />
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => fileInputRef.current?.click()}>
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                   {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5" />}
                 </Button>
                 <Textarea
